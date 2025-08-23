@@ -12,8 +12,7 @@ RUN pushd /tmp && \
     yes '' | ./guix-install.sh && \
     popd && \
     GUIX_PROFILE=/root/.config/guix/current; . "$GUIX_PROFILE/etc/profile" && \
-    guix describe && \
-    env LC_ALL=C.UTF-8 guix-daemon --build-users-group=guixbuild & 
+    guix describe
 
 # create result dir
 RUN mkdir /srv/guix_result
@@ -21,3 +20,5 @@ RUN mkdir /srv/guix_result
 # copy script
 COPY guix-cross-build /usr/bin/guix-cross-build
 RUN chmod +x /usr/bin/guix-cross-build
+
+ENTRYPOINT [ "sh", "-c", "env LC_ALL=C.UTF-8 guix-daemon --build-users-group=guixbuild &" ]
