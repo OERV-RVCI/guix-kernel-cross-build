@@ -1,0 +1,103 @@
+#!/bin/bash
+set -x
+URL=$1
+RESULT_PATH=/srv/guix_result
+
+URL_PROTOCOL="https://"
+URL_WITHOUT_PROTOCOL=$(echo "$URL" | sed "s#^$URL_PROTOCOL##")
+URL_DOMAIN=$(echo "$URL_WITHOUT_PROTOCOL" | cut -d '/' -f 1)
+URL_PATH_PARTS=$(echo "$URL_WITHOUT_PROTOCOL" | cut -d '/' -f 2-)
+URL_REPO_CORE=$(echo "$URL_PATH_PARTS" | cut -d '/' -f 1,2 | sed 's#/$##')
+REPO=$(echo $URL_REPO_CORE | cut -d '/' -f 2)
+REPO_URL="${URL_PROTOCOL}${URL_DOMAIN}/${URL_REPO_CORE}"
+
+if [[ "$URL" =~ /(pull)/([0-9]+) ]]; then
+    echo "类型: ${BASH_REMATCH[1]}"
+    echo "ID: ${BASH_REMATCH[2]}"
+    fetch_ref="pull/${BASH_REMATCH[2]}/head"
+elif [[ "$URL" =~ /(commit)/([0-9a-f]+) ]]; then
+    echo "类型: ${BASH_REMATCH[1]}"
+    echo "哈希值: ${BASH_REMATCH[2]}"
+    fetch_ref="${BASH_REMATCH[2]}"
+else
+    echo "pull/commit未匹配到有效信息"
+    exit 1
+fi
+if [[ "${REPO}" == "rvck" ]];then
+    kernel_config="defconfig"
+elif [[ "${REPO}" == "rvck-olk" ]];then
+    kernel_config="openeuler_defconfig"
+else
+    echo "kernel_config未匹配到有效信息"
+    exit 1
+fi
+
+
+TEMP_DIR=$(mktemp -d)
+pushd ${TEMP_DIR}
+
+git init .
+git config user.email rvci@isrc.iscas.ac.cn
+git config user.name rvci
+git remote add origin "${REPO_URL}"
+git fetch origin "$fetch_ref":"$fetch_ref" --depth=1 --progress
+git checkout $fetch_ref
+
+git_commit=$(git rev-parse HEAD)
+work_path=$(pwd)
+popd
+
+
+guix_command_hash=$(guix download --git file://${work_path}  --commit=${git_commit})
+repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
+echo ${repo_hash}
+cat > channels-lock.scm <<EOF
+(list
+ (channel
+  (name 'rvci)
+  (url "https://git.oerv.ac.cn/Z572/guix-rvci-channel")
+  (branch "master"))
+ (channel
+  (name 'guix)
+  (url "https://mirror.sjtu.edu.cn/git/guix.git")
+  (branch "master")
+  (commit
+   "dd63521f33b34cf7620d9f98573515805b70e3cf")
+  (introduction
+   (make-channel-introduction
+    "9edb3f66fd807b096b48283debdcddccfea34bad"
+    (openpgp-fingerprint
+     "BBB0 2DDF 2CEA F6A8 0D1D  E643 A2A0 6DF2 A33A 54FA")))))
+EOF
+
+cat > guix-kernel-build.scm <<EOF
+(use-modules (oerv packages rvck))
+(make-linux-rvck
+  #:name "linux-rvck-test"
+  #:defconfig "${kernel_config}"
+  #:commit "${git_commit}"
+  #:url "file://${work_path=$(pwd)}"
+  #:hash "${repo_hash}")
+EOF
+
+cat channels-lock.scm
+cat guix-kernel-build.scm
+
+guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
+if [ -d ${TEMP_DIR}/${git_commit} ];then
+    echo "Error: ${TEMP_DIR}/${git_commit} not found"
+    return 1
+fi
+if [ -d ${RESULT_PATH}/${git_commit} ];then
+    rm -fr ${RESULT_PATH}/${git_commit}
+fi
+mkdir -p ${RESULT_PATH}/${git_commit}
+rsync -avP ${TEMP_DIR}/${git_commit}/ ${RESULT_PATH}/${git_commit}/
+module_path_name=$(ls ${RESULT_PATH}/${git_commit}/lib/modules/)
+module_dir_name=$(basename "$module_path_name")
+tar -cvzf  ${RESULT_PATH}/${git_commit}/"$module_dir_name".tgz -C ${RESULT_PATH}/${git_commit}/lib/modules/ "$module_dir_name"
+depmod -b ${RESULT_PATH}/${git_commit} "$module_dir_name"
+dracut ${RESULT_PATH}/${git_commit}/initramfs.img -k ${RESULT_PATH}/${git_commit}/lib/modules/"$module_dir_name" "$module_dir_name"
+
+
+ls ${RESULT_PATH}/${git_commit}
