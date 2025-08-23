@@ -20,4 +20,4 @@ RUN mkdir /srv/guix_result
 
 # copy script
 COPY guix-cross-build /usr/bin/guix-cross-build
-RUN chmod +X /usr/bin/guix-cross-build
+RUN chmod +x /usr/bin/guix-cross-build
