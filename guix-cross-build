@@ -48,7 +48,7 @@ work_path=$(pwd)
 popd
 
 
-guix_command_hash=$(guix download --git file://${work_path}  --commit=${git_commit})
+guix_command_hash=$(guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
 repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
 echo ${repo_hash}
 cat > channels-lock.scm <<EOF
