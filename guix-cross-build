@@ -47,10 +47,6 @@ git_commit=$(git rev-parse HEAD)
 work_path=$(pwd)
 popd
 
-
-guix_command_hash=$(guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
-repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
-echo ${repo_hash}
 cat > channels-lock.scm <<EOF
 (list
  (channel
@@ -82,6 +78,10 @@ EOF
 
 cat channels-lock.scm
 cat guix-kernel-build.scm
+
+guix_command_hash=$(guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
+repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
+echo ${repo_hash}
 
 guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
 if [ -d ${TEMP_DIR}/${git_commit} ];then
