@@ -8,7 +8,7 @@ URL_WITHOUT_PROTOCOL=$(echo "$URL" | sed "s#^$URL_PROTOCOL##")
 URL_DOMAIN=$(echo "$URL_WITHOUT_PROTOCOL" | cut -d '/' -f 1)
 URL_PATH_PARTS=$(echo "$URL_WITHOUT_PROTOCOL" | cut -d '/' -f 2-)
 URL_REPO_CORE=$(echo "$URL_PATH_PARTS" | cut -d '/' -f 1,2 | sed 's#/$##')
-REPO=$(echo $URL_REPO_CORE | cut -d '/' -f 2)
+REPO=$(echo $URL_REPO_CORE | cut -d '/' -f 2 | sed 's/\.git$//')
 REPO_URL="${URL_PROTOCOL}${URL_DOMAIN}/${URL_REPO_CORE}"
 
 if [[ "$URL" =~ /(pull)/([0-9]+) ]]; then
