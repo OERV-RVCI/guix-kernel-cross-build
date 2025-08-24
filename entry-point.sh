@@ -1,5 +1,5 @@
 #!/bin/sh
-
+set -x
 #
 #	MetaCall Guix by Parra Studios
 #	Docker image for using Guix in a CI/CD environment.
@@ -27,7 +27,7 @@ source $GUIX_PROFILE/etc/profile
 GUIX_DAEMON=$!
 
 # Execute commands
-exec "$@"
+"$@"
 GUIX_RESULT=$?
 
 # Kill guix daemon
