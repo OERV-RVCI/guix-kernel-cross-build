@@ -1,5 +1,4 @@
 #!/bin/sh
-set -x
 #
 #	MetaCall Guix by Parra Studios
 #	Docker image for using Guix in a CI/CD environment.

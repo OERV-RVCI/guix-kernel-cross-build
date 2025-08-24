@@ -5,7 +5,7 @@
   (branch "master"))
  (channel
   (name 'guix)
-  (url "https://mirror.sjtu.edu.cn/git/guix.git")
+  (url "https://codeberg.org/guix/guix.git")
   (branch "master")
   (commit
    "dd63521f33b34cf7620d9f98573515805b70e3cf")

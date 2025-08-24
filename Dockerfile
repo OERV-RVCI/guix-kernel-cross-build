@@ -1,3 +1,5 @@
+# syntax = docker/dockerfile:1.1-experimental
+
 FROM openeuler/openeuler:24.03-lts-sp2
 
 # install packages
@@ -5,7 +7,7 @@ RUN dnf makecache && \
     dnf install -y wget xz shadow dracut rsync git && \
     dnf clean all
 
-COPY channels-lock.scm /
+COPY channels-lock.scm /tmp
 COPY entry-point.sh /
 RUN chmod +x /entry-point.sh
 
@@ -14,8 +16,10 @@ RUN pushd /tmp && \
     wget -O guix-install.sh https://guix.gnu.org/install.sh && \
     chmod +x guix-install.sh && \
     yes '' | ./guix-install.sh && \
-    popd && \
-    /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- describe
+    popd
+
+# guix work environment download
+RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /tmp/channels-lock.scm -- describe'
 
 # create result dir
 RUN mkdir /srv/guix_result
