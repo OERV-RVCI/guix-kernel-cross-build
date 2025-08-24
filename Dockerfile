@@ -5,20 +5,24 @@ RUN dnf makecache && \
     dnf install -y wget xz shadow dracut rsync git && \
     dnf clean all
 
+COPY channels-lock.scm /
+
 # install guix
 RUN pushd /tmp && \
     wget -O guix-install.sh https://guix.gnu.org/install.sh && \
     chmod +x guix-install.sh && \
     yes '' | ./guix-install.sh && \
-    popd
+    popd && \
+    guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- describe
 
 # create result dir
 RUN mkdir /srv/guix_result
 
 # copy script
 COPY guix-cross-build /usr/bin/guix-cross-build
-COPY guix-start.sh /usr/bin/guix-start.sh
+COPY entry-point.sh /
 RUN chmod +x /usr/bin/guix-cross-build
-RUN chmod +x /usr/bin/guix-start.sh
+RUN chmod +x /entry-point.sh
 
-ENTRYPOINT /usr/bin/guix-start.sh && /bin/bash
+ENTRYPOINT ["/entry-point.sh"]
+CMD ["sh"]
