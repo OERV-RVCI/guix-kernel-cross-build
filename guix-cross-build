@@ -96,7 +96,7 @@ cat guix-kernel-build.scm
 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
 if [ -d ${TEMP_DIR}/${git_commit} ];then
     echo "Error: ${TEMP_DIR}/${git_commit} not found"
-    return 1
+    exit 1
 fi
 if [ -d ${RESULT_PATH}/${git_commit} ];then
     rm -fr ${RESULT_PATH}/${git_commit}
@@ -107,7 +107,5 @@ module_path_name=$(ls ${RESULT_PATH}/${git_commit}/lib/modules/)
 module_dir_name=$(basename "$module_path_name")
 tar -cvzf  ${RESULT_PATH}/${git_commit}/"$module_dir_name".tgz -C ${RESULT_PATH}/${git_commit}/lib/modules/ "$module_dir_name"
 depmod -b ${RESULT_PATH}/${git_commit} "$module_dir_name"
-dracut ${RESULT_PATH}/${git_commit}/initramfs.img -k ${RESULT_PATH}/${git_commit}/lib/modules/"$module_dir_name" "$module_dir_name"
-
 
 ls ${RESULT_PATH}/${git_commit}
