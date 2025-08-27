@@ -139,6 +139,7 @@ dnf install -y dracut --forcearch riscv64 --installroot ${initramfs_chroot}
 cp -r ${RESULT_PATH}/${git_commit}/lib/modules/${module_dir_name} ${initramfs_chroot}/lib/modules/
 chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img --no-hostonly --kver ${module_dir_name}"
 cp ${initramfs_chroot}/root/initramfs.img ${RESULT_PATH}/${git_commit}/
+chmod 0644 ${RESULT_PATH}/${git_commit}/initramfs.img
 
 # Unmount filesystems if they exist
 if [ -d "${initramfs_chroot}/dev/pts" ]; then
