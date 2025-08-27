@@ -1,7 +1,6 @@
 #!/bin/bash
 set -x
 set -e
-
 URL=$1
 RESULT_PATH=/srv/guix_result
 
@@ -76,7 +75,7 @@ if [ -z "${repo_hash}" ];then
     cat > guix-kernel-build.scm <<EOF
 (use-modules (oerv packages rvck))
 (make-linux-rvck
-  #:name "linux-rvck-test"
+  #:name "linux-rvck"
   #:defconfig "${kernel_config}"
   #:commit "${git_commit}"
   #:url "file://${work_path}"
@@ -85,7 +84,7 @@ else
     cat > guix-kernel-build.scm <<EOF
 (use-modules (oerv packages rvck))
 (make-linux-rvck
-  #:name "linux-rvck-test"
+  #:name "linux-rvck"
   #:defconfig "${kernel_config}"
   #:commit "${git_commit}"
   #:url "file://${work_path}"
@@ -95,6 +94,7 @@ fi
 
 cat guix-kernel-build.scm
 
+# build kernel
 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
 if [ -L ${TEMP_DIR}/${git_commit} ] && [ -d ${TEMP_DIR}/${git_commit} ];then
     echo "Kernel result dir: ${TEMP_DIR}/${git_commit}"
@@ -111,11 +111,49 @@ fi
 if [ -d ${RESULT_PATH}/${git_commit} ];then
     rm -fr ${RESULT_PATH}/${git_commit}
 fi
+
+# copy result from guix result link
 mkdir -p ${RESULT_PATH}/${git_commit}
 rsync -avP ${TEMP_DIR}/${git_commit}/ ${RESULT_PATH}/${git_commit}/
+
+# create modules archive
 module_path_name=$(ls ${RESULT_PATH}/${git_commit}/lib/modules/)
 module_dir_name=$(basename "$module_path_name")
-tar -cvzf  ${RESULT_PATH}/${git_commit}/"$module_dir_name".tgz -C ${RESULT_PATH}/${git_commit}/lib/modules/ "$module_dir_name"
 depmod -b ${RESULT_PATH}/${git_commit} "$module_dir_name"
+tar -cvzf  ${RESULT_PATH}/${git_commit}/"$module_dir_name".tgz -C ${RESULT_PATH}/${git_commit}/lib/modules/ "$module_dir_name"
+
+set +e
+
+# create initramfs
+initramfs_chroot=$(mktemp -d)
+mkdir -p ${initramfs_chroot}/dev ${initramfs_chroot}/proc ${initramfs_chroot}/sys
+mount --bind /dev ${initramfs_chroot}/dev
+mount --bind /dev/pts ${initramfs_chroot}/dev/pts
+mount --bind /dev/shm ${initramfs_chroot}/dev/shm
+mount -t proc proc ${initramfs_chroot}/proc
+mount -t sysfs sys ${initramfs_chroot}/sys
+
+dnf group install -y "Minimal Install" --installroot ${initramfs_chroot}
+dnf install -y dracut --installroot ${initramfs_chroot} 
+cp -r ${RESULT_PATH}/${git_commit}/lib ${initramfs_chroot}/root/
+chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img -k /root/lib/modules/${module_dir_name} ${module_dir_name}"
+cp ${initramfs_chroot}/root/initramfs.img ${RESULT_PATH}/${git_commit}/
+
+# Unmount filesystems if they exist
+if [ -d "${initramfs_chroot}/dev/pts" ]; then
+    umount ${initramfs_chroot}/dev/pts 2>/dev/null || true
+fi
+if [ -d "${initramfs_chroot}/dev/shm" ]; then
+    umount ${initramfs_chroot}/dev/shm 2>/dev/null || true
+fi
+if [ -d "${initramfs_chroot}/dev" ]; then
+    umount ${initramfs_chroot}/dev 2>/dev/null || true
+fi
+if [ -d "${initramfs_chroot}/proc" ]; then
+    umount ${initramfs_chroot}/proc 2>/dev/null || true
+fi
+if [ -d "${initramfs_chroot}/sys" ]; then
+    umount ${initramfs_chroot}/sys 2>/dev/null || true
+fi
 
 ls ${RESULT_PATH}/${git_commit}
