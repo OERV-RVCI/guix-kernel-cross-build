@@ -126,17 +126,18 @@ set +e
 
 # create initramfs
 initramfs_chroot=$(mktemp -d)
-mkdir -p ${initramfs_chroot}/dev ${initramfs_chroot}/proc ${initramfs_chroot}/sys
+mkdir -p ${initramfs_chroot}/dev ${initramfs_chroot}/proc ${initramfs_chroot}/sys ${initramfs_chroot}/run
 mount --bind /dev ${initramfs_chroot}/dev
 mount --bind /dev/pts ${initramfs_chroot}/dev/pts
 mount --bind /dev/shm ${initramfs_chroot}/dev/shm
+mount --bind /run ${initramfs_chroot}/run
 mount -t proc proc ${initramfs_chroot}/proc
 mount -t sysfs sys ${initramfs_chroot}/sys
 
-dnf group install -y "Minimal Install" --installroot ${initramfs_chroot}
-dnf install -y dracut --installroot ${initramfs_chroot} 
-cp -r ${RESULT_PATH}/${git_commit}/lib ${initramfs_chroot}/root/
-chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img -k /root/lib/modules/${module_dir_name} ${module_dir_name}"
+dnf group install -y "Minimal Install" --forcearch riscv64 --installroot ${initramfs_chroot}
+dnf install -y dracut --forcearch riscv64 --installroot ${initramfs_chroot} 
+cp -r ${RESULT_PATH}/${git_commit}/lib/modules/${module_dir_name} ${initramfs_chroot}/lib/modules/
+chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img --no-hostonly --kver ${module_dir_name}"
 cp ${initramfs_chroot}/root/initramfs.img ${RESULT_PATH}/${git_commit}/
 
 # Unmount filesystems if they exist
@@ -154,6 +155,9 @@ if [ -d "${initramfs_chroot}/proc" ]; then
 fi
 if [ -d "${initramfs_chroot}/sys" ]; then
     umount ${initramfs_chroot}/sys 2>/dev/null || true
+fi
+if [ -d "${initramfs_chroot}/run" ]; then
+    umount ${initramfs_chroot}/run 2>/dev/null || true
 fi
 
 ls ${RESULT_PATH}/${git_commit}
