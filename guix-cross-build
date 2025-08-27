@@ -1,5 +1,7 @@
 #!/bin/bash
 set -x
+set -e
+
 URL=$1
 RESULT_PATH=/srv/guix_result
 
@@ -94,7 +96,15 @@ fi
 cat guix-kernel-build.scm
 
 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
-if [ -d ${TEMP_DIR}/${git_commit} ];then
+if [ -L ${TEMP_DIR}/${git_commit} ] && [ -d ${TEMP_DIR}/${git_commit} ];then
+    echo "Kernel result dir: ${TEMP_DIR}/${git_commit}"
+    if [ -f ${TEMP_DIR}/${git_commit}/Image ];then
+        echo "Kernel result file: ${TEMP_DIR}/${git_commit}/Image"
+    else
+        echo "Error: ${TEMP_DIR}/${git_commit}/Image not found"
+        exit 1 
+    fi
+else
     echo "Error: ${TEMP_DIR}/${git_commit} not found"
     exit 1
 fi
