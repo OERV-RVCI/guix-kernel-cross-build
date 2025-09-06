@@ -13,6 +13,8 @@ RUN chmod +x /entry-point.sh
 
 # install guix
 RUN pushd /tmp && \
+    wget -O guix-binary-latest.x86_64-linux.tar.xz https://ci.z572.online/search/latest/archive?query=spec:guix-binary+status:success+system:x86_64-linux+guix-binary.tar.xz && \
+    export GUIX_BINARY_FILE_NAME=guix-binary-latest.x86_64-linux.tar.xz && \
     wget -O guix-install.sh https://guix.gnu.org/install.sh && \
     chmod +x guix-install.sh && \
     yes '' | ./guix-install.sh && \
