@@ -21,7 +21,7 @@ RUN pushd /tmp && \
     popd
 
 # guix work environment download
-RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://mirror.sjtu.edu.cn/guix https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net' -C /tmp/channels-lock.scm -- describe'
+RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://mirror.sjtu.edu.cn/guix https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net' -C /tmp/channels-lock.scm -- describe --fallback'
 
 # create result dir
 RUN mkdir /srv/guix_result
