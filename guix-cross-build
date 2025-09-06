@@ -138,7 +138,7 @@ dnf group install -y "Minimal Install" --forcearch riscv64 --installroot ${initr
 dnf install -y dracut --forcearch riscv64 --installroot ${initramfs_chroot} 
 cp -r ${RESULT_PATH}/${git_commit}/lib/modules/${module_dir_name} ${initramfs_chroot}/lib/modules/
 chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img --no-hostonly --kver ${module_dir_name} && md5sum /root/initramfs.img > /root/initramfs.img.md5sum"
-md5ssum ${RESULT_PATH}/${git_commit}/Image > ${RESULT_PATH}/${git_commit}/Image.md5sum
+md5sum ${RESULT_PATH}/${git_commit}/Image > ${RESULT_PATH}/${git_commit}/Image.md5sum
 cp ${initramfs_chroot}/root/initramfs.img* ${RESULT_PATH}/${git_commit}/
 chmod 0644 ${RESULT_PATH}/${git_commit}/initramfs.img
 
