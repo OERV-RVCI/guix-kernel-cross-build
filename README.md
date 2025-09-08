@@ -6,12 +6,25 @@ guix交叉编译构建内核
 |rvck-olk|https://github.com/RVCK-Project/rvck-olk/|
 
 ## 使用
-在x86环境下启动容器
+oe x86环境下需要访问目录触发挂载
+```
+# ls -alh /proc/sys/fs/binfmt_misc
+```
+在x86环境下需提前准备qemu-user环境
+```
+# docker run --privileged --rm tonistiigi/binfmt --install all
+```
+测试qemu-user环境
+```
+#  docker run --rm --platform linux/riscv64 alpine uname -a
+Linux 49d78a4ac4f1 6.6.0-78.0.0.83.oe2403sp1.x86_64 #1 SMP Wed Feb 19 18:06:41 CST 2025 riscv64 Linux
+```
+运行构建容器，需要挂载本地目录进容器
 ```
 # docker run -ti --privileged -v /your/data/path:/srv/guix_result hub.oepkgs.net/oerv-ci/guix-kernel-cross-build:latest  bash
 ```
 
-查看guix进程
+进入容器后，查看guix进程
 ```
 # ps
     PID TTY          TIME CMD
@@ -34,5 +47,5 @@ guix交叉编译构建内核
 # ls /srv/guix_result/
 32c7ba2136024ee1563416607e3265ccbee6a55e
 # ls /srv/guix_result/32c7ba2136024ee1563416607e3265ccbee6a55e/
-6.6.101.tgz  Image  Module.symvers  System.map  initramfs.img  lib  share
+6.6.101.tgz  Image  Image.md5sum  Module.symvers  System.map  initramfs.img  initramfs.img.md5sum  lib  share
 ```
