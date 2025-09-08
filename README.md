@@ -3,14 +3,16 @@ guix交叉编译构建内核
 |支持的仓库|仓库地址|
 |---|---|
 |rvck|https://github.com/RVCK-Project/rvck|
-|rvck-olk|https://github.com/RVCK-Project/rvck-olk/|
+|rvck-olk|https://github.com/RVCK-Project/rvck-olk|
 
+> 也支持仓库名为 rvck、rvck-olk 的fork仓库： https://github.com/xxx/rvck 、https://github.com/xxx/rvck-olk
 ## 使用
+因为会生成initramfs，所以需要准备qemu-user环境   
 oe x86环境下需要访问目录触发挂载
 ```
 # ls -alh /proc/sys/fs/binfmt_misc
 ```
-在x86环境下需提前准备qemu-user环境
+在x86环境下qemu-user安装
 ```
 # docker run --privileged --rm tonistiigi/binfmt --install all
 ```
