@@ -48,6 +48,7 @@ git_commit=$(git rev-parse HEAD)
 work_path=$(pwd)
 popd
 
+# set guix version with commit, first download from substitute-urls, if substitute-urls download failed, then local build with guix source git repo
 cat > channels-lock.scm <<EOF
 (list
  (channel
@@ -68,6 +69,7 @@ cat > channels-lock.scm <<EOF
 EOF
 cat channels-lock.scm
 
+# calculate the kernel repo hash based on commitid
 guix_command_hash=$(/entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
 repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
 if [ -z "${repo_hash}" ];then
