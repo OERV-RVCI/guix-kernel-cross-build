@@ -26,8 +26,10 @@ else
 fi
 if [[ "${REPO}" == "rvck" ]];then
     kernel_config="defconfig"
+    dracut_driver_add=""
 elif [[ "${REPO}" == "rvck-olk" ]];then
     kernel_config="openeuler_defconfig"
+    dracut_driver_add="--add-drivers "k1-emac""
 else
     echo "kernel_config未匹配到有效信息"
     exit 1
@@ -137,9 +139,9 @@ mount -t proc proc ${initramfs_chroot}/proc
 mount -t sysfs sys ${initramfs_chroot}/sys
 
 dnf group install -y "Minimal Install" --forcearch riscv64 --installroot ${initramfs_chroot}
-dnf install -y dracut --forcearch riscv64 --installroot ${initramfs_chroot} 
+dnf install -y dracut dracut-network nfs-utils --forcearch riscv64 --installroot ${initramfs_chroot} 
 cp -r ${RESULT_PATH}/${git_commit}/lib/modules/${module_dir_name} ${initramfs_chroot}/lib/modules/
-chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img --no-hostonly --add "nfs network base" --add-drivers "k1-emac" --kver ${module_dir_name} && md5sum /root/initramfs.img > /root/initramfs.img.md5sum"
+chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img --no-hostonly --add \" nfs network base \" ${dracut_driver_add} --kver ${module_dir_name} && md5sum /root/initramfs.img > /root/initramfs.img.md5sum"
 md5sum ${RESULT_PATH}/${git_commit}/Image > ${RESULT_PATH}/${git_commit}/Image.md5sum
 cp ${initramfs_chroot}/root/initramfs.img* ${RESULT_PATH}/${git_commit}/
 chmod 0644 ${RESULT_PATH}/${git_commit}/initramfs.img
