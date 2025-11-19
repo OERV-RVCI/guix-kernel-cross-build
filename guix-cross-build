@@ -12,6 +12,25 @@ URL_REPO_CORE=$(echo "$URL_PATH_PARTS" | cut -d '/' -f 1,2 | sed 's#/$##')
 REPO=$(echo $URL_REPO_CORE | cut -d '/' -f 2 | sed 's/\.git$//')
 REPO_URL="${URL_PROTOCOL}${URL_DOMAIN}/${URL_REPO_CORE}"
 
+retry() {
+    local max_attempts=10
+    local sleep_seconds=30
+    local n=1
+
+    while (( n <= max_attempts )); do
+        if "$@"; then
+            return 0
+        fi
+        echo "Attempt $n failed. Retrying in $sleep_seconds seconds..." >&2
+        ((n++))
+        sleep "$sleep_seconds"
+    done
+
+    echo "Command failed after $max_attempts attempts: $*" >&2
+    return 1
+}
+
+
 if [[ "$URL" =~ /(pull)/([0-9]+) ]]; then
     echo "类型: ${BASH_REMATCH[1]}"
     echo "ID: ${BASH_REMATCH[2]}"
@@ -43,7 +62,7 @@ git init .
 git config user.email rvci@isrc.iscas.ac.cn
 git config user.name rvci
 git remote add origin "${REPO_URL}"
-git fetch origin "$fetch_ref":"$fetch_ref" --depth=1 --progress
+retry git fetch origin "$fetch_ref":"$fetch_ref" --depth=1 --progress
 git checkout $fetch_ref
 
 git_commit=$(git rev-parse HEAD)
@@ -138,8 +157,8 @@ mount --bind /run ${initramfs_chroot}/run
 mount -t proc proc ${initramfs_chroot}/proc
 mount -t sysfs sys ${initramfs_chroot}/sys
 
-dnf group install -y "Minimal Install" --forcearch riscv64 --installroot ${initramfs_chroot}
-dnf install -y dracut dracut-network nfs-utils --forcearch riscv64 --installroot ${initramfs_chroot} 
+retry dnf group install -y "Minimal Install" --forcearch riscv64 --installroot ${initramfs_chroot}
+retry dnf install -y dracut dracut-network nfs-utils --forcearch riscv64 --installroot ${initramfs_chroot} 
 cp -r ${RESULT_PATH}/${git_commit}/lib/modules/${module_dir_name} ${initramfs_chroot}/lib/modules/
 chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img --no-hostonly --add \" nfs network base \" ${dracut_driver_add} --kver ${module_dir_name} && md5sum /root/initramfs.img > /root/initramfs.img.md5sum"
 md5sum ${RESULT_PATH}/${git_commit}/Image > ${RESULT_PATH}/${git_commit}/Image.md5sum
