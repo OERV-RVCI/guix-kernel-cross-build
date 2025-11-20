@@ -38,10 +38,10 @@ jobs:
             - 'channels-lock.scm'
 
     - name: guix cache
-      if: steps.filter.outputs.scm == 'true'
+      #if: steps.filter.outputs.scm == 'true'
       run: |
         add_code=$(cat << 'EOF'
-        RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://mirror.sjtu.edu.cn/guix https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net' -C /channels-lock.scm -- archive -r --export linux-libre --target=riscv64-linux-gnu > /tmp/guix_cache'
+        RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix ' -C /channels-lock.scm -- archive -r --export linux-libre --target=riscv64-linux-gnu > /tmp/guix_cache'
         RUN --security=insecure sh -c 'cat /tmp/guix_cache | /entry-point.sh guix archive --import'
         EOF
         )
