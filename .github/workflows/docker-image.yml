@@ -29,6 +29,8 @@ jobs:
       with:
         images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags:
+            type=raw,value=${{ inputs.docker_tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
     - name: Docker Setup BuildX
       uses: docker/setup-buildx-action@v3
@@ -47,10 +49,8 @@ jobs:
     - name: guix cache
       #if: steps.filter.outputs.scm == 'true'
       run: |
-        sed -i "/# recovery guix source url/i \
-        RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls=https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- archive -r --export linux-libre --target=riscv64-linux-gnu > /tmp/guix_cache' \
-        RUN --security=insecure sh -c 'cat /tmp/guix_cache | /entry-point.sh guix archive --import' \
-        " Dockerfile
+        sed -i "/# recovery guix source url/i RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- archive -r --export linux-libre --target=riscv64-linux-gnu > /tmp/guix_cache'" Dockerfile
+        sed -i "/# recovery guix source url/i RUN --security=insecure sh -c 'cat /tmp/guix_cache | /entry-point.sh guix archive --import'" Dockerfile
         cat Dockerfile
 
     - name: Create a new builder instance
@@ -71,7 +71,5 @@ jobs:
         allow: security.insecure
         no-cache: true
         push: true
-        tags: |
-            type=raw,value=${{ inputs.docker_tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
-            type=raw,value=${{ steps.meta.outputs.tags }},enable=${{ github.event_name == 'push tag' }}
+        tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
