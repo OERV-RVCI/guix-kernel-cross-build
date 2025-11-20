@@ -29,6 +29,25 @@ jobs:
     - name: Verify Docker BuildX Version
       run: docker buildx version
 
+    - name: check channels-lock.scm
+      uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          scm:
+            - 'channels-lock.scm'
+
+    - name: guix cache
+      if: steps.filter.outputs.scm == 'true'
+      run: |
+        add_code=$(cat << 'EOF'
+        RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://mirror.sjtu.edu.cn/guix https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net' -C /channels-lock.scm -- archive -r --export linux-libre --target=riscv64-linux-gnu > /tmp/guix_cache'
+        RUN --security=insecure sh -c 'cat /tmp/guix_cache | /entry-point.sh guix archive --import'
+        EOF
+        )
+        sed -i "/# recovery guix source url/i $add_code" Dockerfile
+        cat Dockerfile
+
     - name: Create a new builder instance
       run: docker buildx create --use --name insecure-builder --buildkitd-flags '--allow-insecure-entitlement security.insecure'
 
