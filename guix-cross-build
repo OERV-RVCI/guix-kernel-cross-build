@@ -13,8 +13,8 @@ REPO=$(echo $URL_REPO_CORE | cut -d '/' -f 2 | sed 's/\.git$//')
 REPO_URL="${URL_PROTOCOL}${URL_DOMAIN}/${URL_REPO_CORE}"
 
 retry() {
-    local max_attempts=10
-    local sleep_seconds=30
+    local max_attempts=$1; shift
+    local sleep_seconds=$1; shift
     local n=1
 
     while (( n <= max_attempts )); do
@@ -62,7 +62,7 @@ git init .
 git config user.email rvci@isrc.iscas.ac.cn
 git config user.name rvci
 git remote add origin "${REPO_URL}"
-retry git fetch origin "$fetch_ref":"$fetch_ref" --depth=1 --progress
+retry 10 30 git fetch origin "$fetch_ref":"$fetch_ref" --depth=1 --progress
 git checkout $fetch_ref
 
 git_commit=$(git rev-parse HEAD)
@@ -91,7 +91,7 @@ EOF
 cat channels-lock.scm
 
 # calculate the kernel repo hash based on commitid
-guix_command_hash=$(retry /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
+guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
 repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
 if [ -z "${repo_hash}" ];then
     echo "hash command error"
@@ -118,7 +118,7 @@ fi
 cat guix-kernel-build.scm
 
 # build kernel
-retry /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
+retry 3 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
 if [ -L ${TEMP_DIR}/${git_commit} ] && [ -d ${TEMP_DIR}/${git_commit} ];then
     echo "Kernel result dir: ${TEMP_DIR}/${git_commit}"
     if [ -f ${TEMP_DIR}/${git_commit}/Image ];then
