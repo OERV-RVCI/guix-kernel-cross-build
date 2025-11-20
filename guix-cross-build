@@ -91,7 +91,7 @@ EOF
 cat channels-lock.scm
 
 # calculate the kernel repo hash based on commitid
-guix_command_hash=$(/entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
+guix_command_hash=$(retry /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
 repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
 if [ -z "${repo_hash}" ];then
     echo "hash command error"
@@ -118,7 +118,7 @@ fi
 cat guix-kernel-build.scm
 
 # build kernel
-/entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
+retry /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
 if [ -L ${TEMP_DIR}/${git_commit} ] && [ -d ${TEMP_DIR}/${git_commit} ];then
     echo "Kernel result dir: ${TEMP_DIR}/${git_commit}"
     if [ -f ${TEMP_DIR}/${git_commit}/Image ];then
