@@ -33,6 +33,7 @@ jobs:
     - name: test
       run: |
         echo $GITHUB_WORKSPACE && id && ls -alh && pwd 
+        git config --global --add safe.directory  ${GITHUB_WORKSPACE}
         /usr/bin/git config --global --get-all safe.directory
         /usr/bin/git config --list --show-origin
         ls -alh ~/.gitconfig && cat ~/.gitconfig
