@@ -22,9 +22,9 @@ RUN pushd /tmp && \
     popd
 
 # import guix cache
-RUN --mount=type=secret,id=GUIX_CACHE_ACL,env=GUIX_CACHE_ACL cp /run/secrets/GUIX_CACHE_ACL /etc/guix/acl && chmod 0644 /etc/guix/acl
-RUN --mount=type=secret,id=GUIX_CACHE_ACL_SIGNING_KEY_PUB,env=GUIX_CACHE_ACL_SIGNING_KEY_PUB cp /run/secrets/GUIX_CACHE_ACL_SIGNING_KEY_PUB /etc/guix/signing-key.pub && chmod 0444 /etc/guix/signing-key.pub
-RUN --mount=type=secret,id=GUIX_CACHE_SIGNING_KEY_SEC,env=GUIX_CACHE_SIGNING_KEY_SEC cp /run/secrets/GUIX_CACHE_SIGNING_KEY_SEC /etc/guix/signing-key.sec && chmod 0400 /etc/guix/signing-key.sec
+RUN --mount=type=secret,id=GUIX_CACHE_ACL cp /run/secrets/GUIX_CACHE_ACL /etc/guix/acl && chmod 0644 /etc/guix/acl
+RUN --mount=type=secret,id=GUIX_CACHE_ACL_SIGNING_KEY_PUB cp /run/secrets/GUIX_CACHE_ACL_SIGNING_KEY_PUB /etc/guix/signing-key.pub && chmod 0444 /etc/guix/signing-key.pub
+RUN --mount=type=secret,id=GUIX_CACHE_SIGNING_KEY_SEC cp /run/secrets/GUIX_CACHE_SIGNING_KEY_SEC /etc/guix/signing-key.sec && chmod 0400 /etc/guix/signing-key.sec
 RUN cat /guix_cache | /entry-point.sh guix archive --import && rm -fr /guix_cache
 
 # change guix source url
