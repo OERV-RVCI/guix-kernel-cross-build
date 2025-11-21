@@ -35,7 +35,9 @@ jobs:
     steps:
 
     - uses: actions/checkout@v4
-
+      with:
+        path: /srv/
+          
     - name: test
       run: ls -alh && pwd
 
