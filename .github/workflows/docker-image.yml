@@ -1,8 +1,5 @@
 name: Docker Image CI
 
-
-
-
 on:
   push:
     tags: [ v* ]
@@ -28,15 +25,10 @@ jobs:
       options: --privileged	
     outputs:
       filter_result:  ${{ steps.filter.outputs.scm }}
-    defaults:
-      run:
-        working-directory: /srv/
     
     steps:
 
     - uses: actions/checkout@v4
-      with:
-        path: /srv/
           
     - name: test
       run: ls -alh && pwd
