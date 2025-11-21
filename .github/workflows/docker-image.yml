@@ -30,6 +30,8 @@ jobs:
 
     steps:
 
+    - uses: actions/checkout@v4
+
     - name: check channels-lock.scm
       uses: dorny/paths-filter@v3
       id: filter
