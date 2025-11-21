@@ -1,8 +1,6 @@
 name: Docker Image CI
 
-defaults:
-  run:
-    working-directory: /srv/
+
 
 
 on:
@@ -30,7 +28,10 @@ jobs:
       options: --privileged	
     outputs:
       filter_result:  ${{ steps.filter.outputs.scm }}
-
+    defaults:
+      run:
+        working-directory: /srv/
+    
     steps:
 
     - uses: actions/checkout@v4
