@@ -1,5 +1,10 @@
 name: Docker Image CI
 
+defaults:
+  run:
+    working-directory: /srv/
+
+
 on:
   push:
     tags: [ v* ]
@@ -23,8 +28,6 @@ jobs:
     container: 
       image: hub.oepkgs.net/oerv-ci/guix-kernel-cross-build:latest
       options: --privileged	
-      volumes:
-        - /srv:/srv
     outputs:
       filter_result:  ${{ steps.filter.outputs.scm }}
 
