@@ -14,14 +14,64 @@ on:
 env:
   REGISTRY: hub.oepkgs.net
   IMAGE_NAME: oerv-ci/guix-kernel-cross-build
+
 jobs:
+
+  guix_cache:
+
+    runs-on: ubuntu-latest
+    container: 
+      image: hub.oepkgs.net/oerv-ci/guix-kernel-cross-build:latest
+      options: --privileged	
+      volumes:
+        - /srv:/srv
+    outputs:
+      filter_result:  ${{ steps.filter.outputs.scm }}
+
+    steps:
+
+    - name: check channels-lock.scm
+      uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          scm:
+            - 'channels-lock.scm'
+
+    - name: guix cache
+      id: guix_cache
+      env:
+          GUIX_CACHE_ACL: ${{ secrets.GUIX_CACHE_ACL }}
+          GUIX_CACHE_ACL_SIGNING_KEY_PUB: ${{ secrets.GUIX_CACHE_ACL_SIGNING_KEY_PUB }}
+          GUIX_CACHE_SIGNING_KEY_SEC: ${{ secrets.GUIX_CACHE_SIGNING_KEY_SEC }}
+      #if: steps.filter.outputs.scm == 'true'
+      run: |
+        ls -alh
+        echo $GUIX_CACHE_ACL > /etc/guix/acl && chmod 0644 /etc/guix/acl
+        echo $GUIX_CACHE_ACL_SIGNING_KEY_PUB > /etc/guix/signing-key.pub && chmod 0444 /etc/guix/signing-key.pub
+        echo $GUIX_CACHE_SIGNING_KEY_SEC > /etc/guix/signing-key.sec && chmod 0400 /etc/guix/signing-key.sec
+        /entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- archive -r --export linux-libre --target=riscv64-linux-gnu > /srv/guix_cache 
+
+    - name: upload guix cache 
+      uses: actions/upload-artifact@v4
+      with: 
+        name: guix_cache
+        path: /srv/guix_cache
+        overwrite: true
 
   build:
 
     runs-on: ubuntu-latest
+    needs: [guix_cache]
 
     steps:
+
     - uses: actions/checkout@v4
+
+    - name: download guix cache
+      uses: actions/download-artifact@v5
+      with:
+        name: guix_cache
 
     - name: Generate Docker metadata
       id: meta
@@ -37,20 +87,6 @@ jobs:
 
     - name: Verify Docker BuildX Version
       run: docker buildx version
-
-    - name: check channels-lock.scm
-      uses: dorny/paths-filter@v3
-      id: filter
-      with:
-        filters: |
-          scm:
-            - 'channels-lock.scm'
-
-    - name: guix cache
-      #if: steps.filter.outputs.scm == 'true'
-      run: |
-        sed -i "/# recovery guix source url/i RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- archive -r --export linux-libre --target=riscv64-linux-gnu > /tmp/guix_cache && cat /tmp/guix_cache | /entry-point.sh guix archive --import'" Dockerfile
-        cat Dockerfile
 
     - name: Create a new builder instance
       run: docker buildx create --use --name insecure-builder --buildkitd-flags '--allow-insecure-entitlement security.insecure'
@@ -68,6 +104,10 @@ jobs:
         context: .
         file: ./Dockerfile
         allow: security.insecure
+        secrets: |
+          GUIX_CACHE_ACL: ${{ secrets.GUIX_CACHE_ACL }}
+          GUIX_CACHE_ACL_SIGNING_KEY_PUB: ${{ secrets.GUIX_CACHE_ACL_SIGNING_KEY_PUB }}
+          GUIX_CACHE_SIGNING_KEY_SEC: ${{ secrets.GUIX_CACHE_SIGNING_KEY_SEC }}
         no-cache: true
         push: true
         tags: ${{ steps.meta.outputs.tags }}
