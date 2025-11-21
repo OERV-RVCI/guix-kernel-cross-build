@@ -35,7 +35,7 @@ jobs:
         echo $GITHUB_WORKSPACE && id && ls -alh && pwd 
         /usr/bin/git config --global --get-all safe.directory
         /usr/bin/git config --list --show-origin
-        cat ~/.gitconfig
+        ls -alh ~/.gitconfig && cat ~/.gitconfig
 
     - name: check channels-lock.scm
       uses: dorny/paths-filter@v3
