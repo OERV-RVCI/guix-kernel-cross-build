@@ -77,6 +77,13 @@ jobs:
       with:
         name: guix_cache
 
+    - name: test
+      run: |
+        ls -alh guix_cache 
+        file guix_cache
+        cat /etc/guix/*
+
+
     - name: Generate Docker metadata
       id: meta
       uses: docker/metadata-action@v3
