@@ -24,8 +24,8 @@ RUN pushd /tmp && \
 # import guix cache
 RUN --mount=type=secret,id=GUIX_CACHE_ACL ls /run/secrets/ && cp /run/secrets/GUIX_CACHE_ACL /etc/guix/acl && chmod 0644 /etc/guix/acl
 RUN --mount=type=secret,id=GUIX_CACHE_ACL_SIGNING_KEY_PUB cp /run/secrets/GUIX_CACHE_ACL_SIGNING_KEY_PUB /etc/guix/signing-key.pub && chmod 0444 /etc/guix/signing-key.pub
-RUN --mount=type=secret,id=GUIX_CACHE_SIGNING_KEY_SEC cp /run/secrets/GUIX_CACHE_SIGNING_KEY_SEC /etc/guix/signing-key.sec && chmod 0400 /etc/guix/signing-key.sec
-RUN cat /guix_cache | /entry-point.sh guix archive --import && rm -fr /guix_cache
+RUN --mount=type=secret,id=GUIX_CACHE_SIGNING_KEY_SEC cp /run/secrets/GUIX_CACHE_SIGNING_KEY_SEC /etc/guix/signing-key.sec && chmod 0400 /etc/guix/signing-key.sec && ls -alh /etc/guix/
+RUN ls -alh /guix_cache && cat /guix_cache | /entry-point.sh guix archive --import && rm -fr /guix_cache
 
 # change guix source url
 RUN sed -i "s@https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git@https://codeberg.org/guix/guix.git@" /channels-lock.scm
