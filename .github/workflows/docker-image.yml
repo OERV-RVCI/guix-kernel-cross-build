@@ -109,9 +109,9 @@ jobs:
         file: ./Dockerfile
         allow: security.insecure
         secrets: |
-          GUIX_CACHE_ACL: ${{ secrets.GUIX_CACHE_ACL }}
-          GUIX_CACHE_ACL_SIGNING_KEY_PUB: ${{ secrets.GUIX_CACHE_ACL_SIGNING_KEY_PUB }}
-          GUIX_CACHE_SIGNING_KEY_SEC: ${{ secrets.GUIX_CACHE_SIGNING_KEY_SEC }}
+          "GUIX_CACHE_ACL=${{ secrets.GUIX_CACHE_ACL }}
+          "GUIX_CACHE_ACL_SIGNING_KEY_PUB=${{ secrets.GUIX_CACHE_ACL_SIGNING_KEY_PUB }}"
+          "GUIX_CACHE_SIGNING_KEY_SEC=${{ secrets.GUIX_CACHE_SIGNING_KEY_SEC }}"
         no-cache: true
         push: true
         tags: ${{ steps.meta.outputs.tags }}
