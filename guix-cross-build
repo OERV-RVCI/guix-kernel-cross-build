@@ -69,29 +69,11 @@ git_commit=$(git rev-parse HEAD)
 work_path=$(pwd)
 popd
 
-# set guix version with commit, first download from substitute-urls, if substitute-urls download failed, then local build with guix source git repo
-cat > channels-lock.scm <<EOF
-(list
- (channel
-  (name 'rvci)
-  (url "https://git.oerv.ac.cn/Z572/guix-rvci-channel")
-  (branch "master"))
- (channel
-  (name 'guix)
-  (url "https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git")
-  (branch "master")
-  (commit
-   "dd63521f33b34cf7620d9f98573515805b70e3cf")
-  (introduction
-   (make-channel-introduction
-    "9edb3f66fd807b096b48283debdcddccfea34bad"
-    (openpgp-fingerprint
-     "BBB0 2DDF 2CEA F6A8 0D1D  E643 A2A0 6DF2 A33A 54FA")))))
-EOF
-cat channels-lock.scm
+# channels-lock.scm set guix version with commit, first download from substitute-urls, if substitute-urls download failed, then local build with guix source git repo
+cat /channels-lock.scm
 
 # calculate the kernel repo hash based on commitid
-guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
+guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
 repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
 if [ -z "${repo_hash}" ];then
     echo "hash command error"
@@ -118,7 +100,7 @@ fi
 cat guix-kernel-build.scm
 
 # build kernel
-retry 3 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
+/entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
 if [ -L ${TEMP_DIR}/${git_commit} ] && [ -d ${TEMP_DIR}/${git_commit} ];then
     echo "Kernel result dir: ${TEMP_DIR}/${git_commit}"
     if [ -f ${TEMP_DIR}/${git_commit}/Image ];then
