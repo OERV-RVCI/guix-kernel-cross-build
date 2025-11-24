@@ -2,7 +2,9 @@
  (channel
   (name 'rvci)
   (url "https://git.oerv.ac.cn/Z572/guix-rvci-channel")
-  (branch "master"))
+  (branch "master")
+  (commit
+   "78c9857cc28012d931bf2c57cbd2b65c301e3916"))
  (channel
   (name 'guix)
   (url "https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git")

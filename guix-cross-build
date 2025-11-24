@@ -54,7 +54,7 @@ else
     exit 1
 fi
 
-
+# clone kernel repo
 TEMP_DIR=$(mktemp -d)
 pushd ${TEMP_DIR}
 
@@ -139,8 +139,8 @@ mount --bind /run ${initramfs_chroot}/run
 mount -t proc proc ${initramfs_chroot}/proc
 mount -t sysfs sys ${initramfs_chroot}/sys
 
-retry dnf group install -y "Minimal Install" --forcearch riscv64 --installroot ${initramfs_chroot}
-retry dnf install -y dracut dracut-network nfs-utils --forcearch riscv64 --installroot ${initramfs_chroot} 
+retry 10 30 dnf group install -y "Minimal Install" --forcearch riscv64 --installroot ${initramfs_chroot}
+retry 10 30 dnf install -y dracut dracut-network nfs-utils --forcearch riscv64 --installroot ${initramfs_chroot} 
 cp -r ${RESULT_PATH}/${git_commit}/lib/modules/${module_dir_name} ${initramfs_chroot}/lib/modules/
 chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img --no-hostonly --add \" nfs network base \" ${dracut_driver_add} --kver ${module_dir_name} && md5sum /root/initramfs.img > /root/initramfs.img.md5sum"
 md5sum ${RESULT_PATH}/${git_commit}/Image > ${RESULT_PATH}/${git_commit}/Image.md5sum
