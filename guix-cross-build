@@ -62,7 +62,7 @@ git init .
 git config user.email rvci@isrc.iscas.ac.cn
 git config user.name rvci
 git remote add origin "${REPO_URL}"
-retry 10 30 git fetch origin "$fetch_ref":"$fetch_ref" --depth=1 --progress
+retry 10 30 git fetch origin "$fetch_ref":"$fetch_ref" --depth=1
 git checkout $fetch_ref
 
 git_commit=$(git rev-parse HEAD)
