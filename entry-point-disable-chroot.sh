@@ -22,7 +22,7 @@
 source $GUIX_PROFILE/etc/profile
 
 # Run guix daemon
-/root/.config/guix/current/bin/guix-daemon --build-users-group=guixbuild &
+/root/.config/guix/current/bin/guix-daemon --disable-chroot --build-users-group=guixbuild &
 GUIX_DAEMON=$!
 
 # Execute commands

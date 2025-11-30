@@ -9,6 +9,7 @@ RUN dnf makecache && \
 
 COPY channels-lock.scm /
 COPY entry-point.sh /
+COPY entry-point-disable-chroot.sh /
 #COPY guix_cache /
 RUN chmod +x /entry-point.sh
 
@@ -30,7 +31,7 @@ RUN sed -i "s@https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git@https://codeb
 
 # guix work environment download and build guix 
 RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- describe --fallback'
-RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- shell -D linux-libre --search-paths' 
+RUN --security=insecure sh -c '/entry-point-disable-chroot.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- shell -D linux-libre --search-paths' 
 
 # recovery guix source url
 RUN sed -i "s@https://codeberg.org/guix/guix.git@https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git@" /channels-lock.scm
