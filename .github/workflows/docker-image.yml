@@ -17,17 +17,17 @@ env:
 
 jobs:
 
-  check:
-    runs-on: ubuntu-latest
-    outputs:
-      filter_result: ${{ steps.filter.outputs.scm }}
-      check_cache_result: ${{ steps.check_cache.outputs.cache-hit }} 
-
-    steps:
-
-      - uses: actions/checkout@v4
-        with:
-         fetch-depth: 0   
+#  check:
+#    runs-on: ubuntu-latest
+#    outputs:
+#      filter_result: ${{ steps.filter.outputs.scm }}
+#      check_cache_result: ${{ steps.check_cache.outputs.cache-hit }} 
+#
+#    steps:
+#
+#      - uses: actions/checkout@v4
+#        with:
+#         fetch-depth: 0   
          
       #- name: debug git log
       #  run: |
@@ -37,82 +37,82 @@ jobs:
       #    git config --global --add safe.directory  $GITHUB_WORKSPACE
 
       # https://github.com/dorny/paths-filter/issues/201
-      - name: Get previous commit
-        id: prev-commit
-        run: |
-          PREV_COMMIT=$(git rev-list -n 1 HEAD^1)
-          echo "PREV_COMMIT=$PREV_COMMIT" >> $GITHUB_ENV
+#      - name: Get previous commit
+#        id: prev-commit
+#        run: |
+#          PREV_COMMIT=$(git rev-list -n 1 HEAD^1)
+#          echo "PREV_COMMIT=$PREV_COMMIT" >> $GITHUB_ENV
 
-      - name: check channels-lock.scm
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ env.PREV_COMMIT }}
-          filters: |
-            scm:
-              - modified: 'channels-lock.scm'
+#      - name: check channels-lock.scm
+#        uses: dorny/paths-filter@v3
+#        id: filter
+#        with:
+#          base: ${{ env.PREV_COMMIT }}
+#          filters: |
+#            scm:
+#              - modified: 'channels-lock.scm'
 
-      - name: check guix cache
-        uses: actions/cache/restore@v4
-        id: check_cache
-        with:
-          key: guix_cache-${{ hashFiles('channels-lock.scm') }}
-          path: ./guix_cache
+#      - name: check guix cache
+#        uses: actions/cache/restore@v4
+#        id: check_cache
+#       with:
+#          key: guix_cache-${{ hashFiles('channels-lock.scm') }}
+#          path: ./guix_cache
     
-      - name: print check result
-        env:
-          check_scm_result: ${{ steps.filter.outputs.scm }}
-          check_guix_cache_result: ${{ steps.check_cache.outputs.cache-hit }}
-        run: |
-          echo "check channels-lock.scm result: ${check_scm_result}"
-          echo "check guix cache result: $check_guix_cache_result"
+#      - name: print check result
+#        env:
+#          check_scm_result: ${{ steps.filter.outputs.scm }}
+#         check_guix_cache_result: ${{ steps.check_cache.outputs.cache-hit }}
+#        run: |
+#          echo "check channels-lock.scm result: ${check_scm_result}"
+#          echo "check guix cache result: $check_guix_cache_result"
           
 # generate guix kernel build depend package cache 
-  guix_cache:
-    if: ${{ needs.check.outputs.filter_result == 'true' || needs.check.outputs.check_cache_result != 'true' }}
-    runs-on: ubuntu-latest
-    needs: [check]
-    container: 
-      image: hub.oepkgs.net/oerv-ci/guix-kernel-cross-build:latest
-      options: --privileged	
-
-    steps:
-
-    - uses: actions/checkout@v4
-          
-    - name: guix cache
-      id: guix_cache
-      env:
-          GUIX_CACHE_ACL: ${{ secrets.GUIX_CACHE_ACL }}
-          GUIX_CACHE_ACL_SIGNING_KEY_PUB: ${{ secrets.GUIX_CACHE_ACL_SIGNING_KEY_PUB }}
-          GUIX_CACHE_SIGNING_KEY_SEC: ${{ secrets.GUIX_CACHE_SIGNING_KEY_SEC }}
-      run: |
-        echo $GUIX_CACHE_ACL > /etc/guix/acl && chmod 0644 /etc/guix/acl
-        echo $GUIX_CACHE_ACL_SIGNING_KEY_PUB > /etc/guix/signing-key.pub && chmod 0444 /etc/guix/signing-key.pub
-        echo $GUIX_CACHE_SIGNING_KEY_SEC > /etc/guix/signing-key.sec && chmod 0400 /etc/guix/signing-key.sec
-        /entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- archive -r --export linux-libre --target=riscv64-linux-gnu > ./guix_cache 
-
-    - name: cache guix cache 
-      uses: actions/cache/save@v4
-      with: 
-        path: ./guix_cache
-        key: guix_cache-${{ hashFiles('channels-lock.scm') }}
+#  guix_cache:
+#    if: ${{ needs.check.outputs.filter_result == 'true' || needs.check.outputs.check_cache_result != 'true' }}
+#    runs-on: ubuntu-latest
+#    needs: [check]
+#    container: 
+#      image: hub.oepkgs.net/oerv-ci/guix-kernel-cross-build:latest
+#      options: --privileged	
+#
+#    steps:
+#
+#    - uses: actions/checkout@v4
+#          
+#    - name: guix cache
+#      id: guix_cache
+#      env:
+#          GUIX_CACHE_ACL: ${{ secrets.GUIX_CACHE_ACL }}
+#          GUIX_CACHE_ACL_SIGNING_KEY_PUB: ${{ secrets.GUIX_CACHE_ACL_SIGNING_KEY_PUB }}
+#          GUIX_CACHE_SIGNING_KEY_SEC: ${{ secrets.GUIX_CACHE_SIGNING_KEY_SEC }}
+#      run: |
+#        echo $GUIX_CACHE_ACL > /etc/guix/acl && chmod 0644 /etc/guix/acl
+#        echo $GUIX_CACHE_ACL_SIGNING_KEY_PUB > /etc/guix/signing-key.pub && chmod 0444 /etc/guix/signing-key.pub
+#        echo $GUIX_CACHE_SIGNING_KEY_SEC > /etc/guix/signing-key.sec && chmod 0400 /etc/guix/signing-key.sec
+#        /entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- archive -r --export linux-libre --target=riscv64-linux-gnu > ./guix_cache 
+#
+#    - name: cache guix cache 
+#      uses: actions/cache/save@v4
+#      with: 
+#        path: ./guix_cache
+#        key: guix_cache-${{ hashFiles('channels-lock.scm') }}
 
   build:
-    if: ${{ !failure() && !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.guix_cache.result) }}  
-    needs: [check, guix_cache]
+#    if: ${{ !failure() && !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.guix_cache.result) }}  
+#    needs: [check]
     runs-on: ubuntu-latest
 
     steps:
 
     - uses: actions/checkout@v4
 
-    - name: restore guix cache
-      uses: actions/cache/restore@v4
-      with:
-        fail-on-cache-miss: true
-        key: guix_cache-${{ hashFiles('channels-lock.scm') }}
-        path: ./guix_cache
+#    - name: restore guix cache
+#      uses: actions/cache/restore@v4
+#      with:
+#        fail-on-cache-miss: true
+#        key: guix_cache-${{ hashFiles('channels-lock.scm') }}
+#        path: ./guix_cache
 
     #- name: debug
     #  run: |

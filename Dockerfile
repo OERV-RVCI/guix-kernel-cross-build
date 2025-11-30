@@ -22,14 +22,15 @@ RUN pushd /tmp && \
     popd
 
 # import guix cache
-RUN --mount=type=secret,id=GUIX_CACHE_ACL_SIGNING_KEY_PUB  /entry-point.sh guix archive --authorize < /run/secrets/GUIX_CACHE_ACL_SIGNING_KEY_PUB 
-RUN cat /guix_cache | /entry-point.sh guix archive --import && rm -fr /guix_cache
+#RUN --mount=type=secret,id=GUIX_CACHE_ACL_SIGNING_KEY_PUB  /entry-point.sh guix archive --authorize < /run/secrets/GUIX_CACHE_ACL_SIGNING_KEY_PUB 
+#RUN cat /guix_cache | /entry-point.sh guix archive --import && rm -fr /guix_cache
 
 # change guix source url
 RUN sed -i "s@https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git@https://codeberg.org/guix/guix.git@" /channels-lock.scm
 
 # guix work environment download and build guix 
-RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- describe --fallback'
+#RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- describe --fallback'
+RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- shell -D linux-libre --search-paths 
 
 # recovery guix source url
 RUN sed -i "s@https://codeberg.org/guix/guix.git@https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git@" /channels-lock.scm
