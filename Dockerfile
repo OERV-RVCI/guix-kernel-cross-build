@@ -29,7 +29,7 @@ RUN pushd /tmp && \
 RUN sed -i "s@https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git@https://codeberg.org/guix/guix.git@" /channels-lock.scm
 
 # guix work environment download and build guix 
-#RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- describe --fallback'
+RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- describe --fallback'
 RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- shell -D linux-libre --search-paths' 
 
 # recovery guix source url
