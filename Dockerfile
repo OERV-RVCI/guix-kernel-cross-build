@@ -9,7 +9,7 @@ RUN dnf makecache && \
 
 COPY channels-lock.scm /
 COPY entry-point.sh /
-COPY guix_cache /
+#COPY guix_cache /
 RUN chmod +x /entry-point.sh
 
 # install guix
