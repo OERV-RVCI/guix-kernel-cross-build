@@ -2,7 +2,9 @@ name: Docker Image CI
 
 on:
   push:
-    tags: [ v* ]
+    tags: 
+        - v*
+        - release
   workflow_dispatch:
     inputs:
       docker_tag:
@@ -129,7 +131,7 @@ jobs:
         images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags:
-            type=raw,value=${{ inputs.docker_tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=raw,value=${{ inputs.docker_tag }}
 
     - name: Docker Setup BuildX
       uses: docker/setup-buildx-action@v3
