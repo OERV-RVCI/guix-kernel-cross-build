@@ -31,7 +31,7 @@ jobs:
       with:
         images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags:
+        tags: |
             type=raw,value=${{ inputs.docker_tag }}
             type=raw,value=release,enable=${{ github.ref_type == 'tag' }}
             type=raw,value={{tag}}
