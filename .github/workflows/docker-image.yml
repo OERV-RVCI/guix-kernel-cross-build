@@ -4,7 +4,6 @@ on:
   push:
     tags: 
         - "v*"
-        - "release"
   workflow_dispatch:
     inputs:
       docker_tag:
@@ -132,6 +131,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags:
             type=raw,value=${{ inputs.docker_tag }}
+            type=raw,value=release,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value={{tag}}
 
     - name: Docker Setup BuildX
       uses: docker/setup-buildx-action@v3
