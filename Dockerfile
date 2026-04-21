@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1.1-experimental
-
-FROM openeuler/openeuler:24.03-lts-sp2
+ARG BASE_IMAGE                                                                                                                                                                                                                                                                                                           
+FROM $BASE_IMAGE  
 
 # install packages
 RUN dnf makecache && \

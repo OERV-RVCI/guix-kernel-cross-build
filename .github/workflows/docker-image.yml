@@ -9,7 +9,6 @@ on:
       docker_tag:
         description: 'guix docker image tag'
         required: true
-        default: 'latest'
         type: string    
 
 env:
@@ -103,7 +102,18 @@ jobs:
 #    if: ${{ !failure() && !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.guix_cache.result) }}  
 #    needs: [check]
     runs-on: ubuntu-latest
+    strategy:                                                               
+        matrix:                                                               
+            base-image:                                                         
+              - openeuler/openeuler:24.03-lts-sp2                               
+              - git.openruyi.cn/openruyi/creek-x86-64:latest                    
+            include:                                                            
+              - base-image: openeuler/openeuler:24.03-lts-sp2                   
+                variant: openeuler                                              
+              - base-image: git.openruyi.cn/openruyi/creek-x86-64:latest        
+                variant: openruyi                                               
 
+    
     steps:
 
     - uses: actions/checkout@v4
@@ -130,7 +140,7 @@ jobs:
         images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags:
-            type=raw,value={{tag}}
+            type=raw,value=${{ matrix.variant }}-{{tag}}
 
     - name: Docker Setup BuildX
       uses: docker/setup-buildx-action@v3
@@ -154,8 +164,10 @@ jobs:
         context: .
         file: ./Dockerfile
         allow: security.insecure
-        secrets: |
-          "GUIX_CACHE_ACL_SIGNING_KEY_PUB=${{ secrets.GUIX_CACHE_ACL_SIGNING_KEY_PUB }}"
+        build-args: |                                                       
+            BASE_IMAGE=${{ matrix.base-image }}      
+        #secrets: |
+        #  "GUIX_CACHE_ACL_SIGNING_KEY_PUB=${{ secrets.GUIX_CACHE_ACL_SIGNING_KEY_PUB }}"
         no-cache: true
         push: true
         tags: ${{ steps.meta.outputs.tags }}
