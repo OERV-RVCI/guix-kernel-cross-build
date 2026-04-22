@@ -4,7 +4,7 @@ FROM $BASE_IMAGE
 
 # install packages
 RUN dnf makecache && \
-    dnf install -y wget xz shadow dracut rsync git gpg tar && \
+    dnf install -y wget xz shadow dracut rsync git gpg tar ca-certificates && \
     dnf clean all
 
 COPY channels-lock.scm /
