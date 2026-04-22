@@ -18,6 +18,17 @@
 #	limitations under the License.
 #
 
+# 设置 SSL 证书环境变量
+if [ -d /etc/pki/tls/certs ]; then
+    export SSL_CERT_DIR=/etc/pki/tls/certs
+    export SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.crt
+    export GIT_SSL_CAINFO=/etc/pki/tls/certs/ca-bundle.crt
+elif [ -d /etc/ssl/certs ]; then
+    export SSL_CERT_DIR=/etc/ssl/certs
+    export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+    export GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
+fi
+
 # Load profile enviroment variables
 source $GUIX_PROFILE/etc/profile
 

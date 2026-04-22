@@ -7,6 +7,11 @@ RUN dnf makecache && \
     dnf install -y wget xz shadow dracut rsync git gpg tar ca-certificates && \
     dnf clean all
 
+# 设置 SSL 证书环境变量
+ENV SSL_CERT_DIR=/etc/pki/tls/certs
+ENV SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.crt
+ENV GIT_SSL_CAINFO=/etc/pki/tls/certs/ca-bundle.crt
+
 COPY channels-lock.scm /
 COPY entry-point.sh /
 COPY entry-point-disable-chroot.sh /
