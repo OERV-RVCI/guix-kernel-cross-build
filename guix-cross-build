@@ -160,7 +160,7 @@ else
     exit 1
 fi
 
-rsync -avP ${RESULT_PATH}/${git_commit}/lib/modules/${module_dir_name}/ ${initramfs_chroot}/lib/modules/
+rsync -avP ${RESULT_PATH}/${git_commit}/lib/modules/${module_dir_name} ${initramfs_chroot}/lib/modules/
 chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img --no-hostonly --add \" nfs network base \" ${dracut_driver_add} --kver ${module_dir_name} && md5sum /root/initramfs.img > /root/initramfs.img.md5sum"
 md5sum ${RESULT_PATH}/${git_commit}/Image > ${RESULT_PATH}/${git_commit}/Image.md5sum
 cp ${initramfs_chroot}/root/initramfs.img* ${RESULT_PATH}/${git_commit}/
