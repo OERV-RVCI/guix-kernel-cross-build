@@ -148,13 +148,13 @@ if [[ ${OS_ID} == "openEuler" ]]; then
     retry 10 30 dnf install -y dracut dracut-network nfs-utils --forcearch riscv64 --installroot ${initramfs_chroot} 
 elif [[ ${OS_ID} == "openruyi" ]]; then
     cat >> /etc/yum.repos.d/openruyi.repo <<EOF
-[Base-rva23]
-name=openruyi Base rva23
-baseurl=https://boat.openruyi.cn/unstable/rva23
+[Base-rva20]
+name=openruyi Base rva20
+baseurl=https://boat.openruyi.cn/unstable/rva20/
 enabled=1
 gpgcheck=0
 EOF
-    retry 10 30 dnf install -y openruyi-minimal dracut dracut-network nfs-utils --forcearch riscv64 --installroot ${initramfs_chroot} --use-host-config --repoid=Base-rva23
+    retry 10 30 dnf install -y openruyi-minimal dracut systemd-networkd nfs-client --forcearch riscv64 --installroot ${initramfs_chroot} --use-host-config --repoid=Base-rva20
 else
     echo "Error: wrong OS_ID"
     exit 1
