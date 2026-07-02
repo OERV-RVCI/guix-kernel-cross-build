@@ -2,15 +2,15 @@
  (channel
   (name 'rvci)
   (url "https://git.oerv.ac.cn/Z572/guix-rvci-channel")
-  (branch "master")
+  (branch "rvck-with-gcc16")
   (commit
-   "78c9857cc28012d931bf2c57cbd2b65c301e3916"))
+   "a77e4921a4a67b21f31e4760c8d9aadb1ac58a18"))
  (channel
   (name 'guix)
   (url "https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git")
   (branch "master")
   (commit
-   "dd63521f33b34cf7620d9f98573515805b70e3cf")
+   "acd7100df96a4de2e702072c24b0445438c0c9a7")
   (introduction
    (make-channel-introduction
     "9edb3f66fd807b096b48283debdcddccfea34bad"

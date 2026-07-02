@@ -144,17 +144,36 @@ mount -t proc proc ${initramfs_chroot}/proc
 mount -t sysfs sys ${initramfs_chroot}/sys
 
 if [[ ${OS_ID} == "openEuler" ]]; then
-    retry 10 30 dnf group install -y "Minimal Install" --forcearch riscv64 --installroot ${initramfs_chroot}
-    retry 10 30 dnf install -y dracut dracut-network nfs-utils --forcearch riscv64 --installroot ${initramfs_chroot} 
-elif [[ ${OS_ID} == "openruyi" ]]; then
-    cat >> /etc/yum.repos.d/openruyi.repo <<EOF
-[Base-rva20]
-name=openruyi Base rva20
-baseurl=https://boat.openruyi.cn/unstable/rva20/
+    mkdir -p ${initramfs_chroot}/etc/yum.repos.d
+    if [[ "${REPO}" == "rvck" ]]; then
+        rva_repo_url="https://fast-mirror.isrc.ac.cn/openeuler/openEuler-24.03-LTS-SP3/everything/riscv64/rva20/riscv64/"
+        rva_repo_id="Base-rva20"
+    elif [[ "${REPO}" == "rvck-olk" ]]; then
+        rva_repo_url="https://fast-mirror.isrc.ac.cn/openeuler/openEuler-24.03-LTS-SP3/everything/riscv64/rva23/riscv64/"
+        rva_repo_id="Base-rva23"
+    else
+        echo "Error: unsupported REPO '${REPO}' for openEuler"
+        exit 1
+    fi
+    cat > ${initramfs_chroot}/etc/yum.repos.d/openEuler-${rva_repo_id}.repo <<EOF
+[${rva_repo_id}]
+name=openEuler ${rva_repo_id}
+baseurl=${rva_repo_url}
 enabled=1
 gpgcheck=0
 EOF
-    retry 10 30 dnf install -y openruyi-minimal dracut systemd-networkd nfs-client --forcearch riscv64 --installroot ${initramfs_chroot} --use-host-config --repoid=Base-rva20
+    retry 10 30 dnf install -y --disablerepo=* --repoid=${rva_repo_id} --forcearch riscv64 --installroot ${initramfs_chroot} @^${OS_ID}-minimal
+    retry 10 30 dnf install -y --disablerepo=* --repoid=${rva_repo_id} --forcearch riscv64 --installroot ${initramfs_chroot} dracut dracut-network nfs-utils
+elif [[ ${OS_ID} == "openruyi" ]]; then
+    mkdir -p ${initramfs_chroot}/etc/yum.repos.d
+    cat > ${initramfs_chroot}/etc/yum.repos.d/openruyi-rva23.repo <<EOF
+[Base-rva23]
+name=openruyi Base rva23
+baseurl=https://boat.openruyi.cn/unstable/rva23/
+enabled=1
+gpgcheck=0
+EOF
+    retry 10 30 dnf install -y --disablerepo=* --repoid=Base-rva23 --forcearch riscv64 --installroot ${initramfs_chroot} openruyi-minimal dracut systemd-networkd nfs-client
 else
     echo "Error: wrong OS_ID"
     exit 1
