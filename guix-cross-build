@@ -162,8 +162,8 @@ baseurl=${rva_repo_url}
 enabled=1
 gpgcheck=0
 EOF
-    retry 10 30 dnf install -y --disablerepo=* --repoid=${rva_repo_id} --forcearch riscv64 --installroot ${initramfs_chroot} @^${OS_ID}-minimal
-    retry 10 30 dnf install -y --disablerepo=* --repoid=${rva_repo_id} --forcearch riscv64 --installroot ${initramfs_chroot} dracut dracut-network nfs-utils
+    retry 10 30 dnf install -y --disablerepo=* --enablerepo=${rva_repo_id} --forcearch riscv64 --installroot ${initramfs_chroot} @^${OS_ID}-minimal
+    retry 10 30 dnf install -y --disablerepo=* --enablerepo=${rva_repo_id} --forcearch riscv64 --installroot ${initramfs_chroot} dracut dracut-network nfs-utils
 elif [[ ${OS_ID} == "openruyi" ]]; then
     mkdir -p ${initramfs_chroot}/etc/yum.repos.d
     cat > ${initramfs_chroot}/etc/yum.repos.d/openruyi-rva23.repo <<EOF
@@ -173,7 +173,7 @@ baseurl=https://boat.openruyi.cn/unstable/rva23/
 enabled=1
 gpgcheck=0
 EOF
-    retry 10 30 dnf install -y --disablerepo=* --repoid=Base-rva23 --forcearch riscv64 --installroot ${initramfs_chroot} openruyi-minimal dracut systemd-networkd nfs-client
+    retry 10 30 dnf install -y --disablerepo=* --enablerepo=Base-rva23 --forcearch riscv64 --installroot ${initramfs_chroot} openruyi-minimal dracut systemd-networkd nfs-client
 else
     echo "Error: wrong OS_ID"
     exit 1
