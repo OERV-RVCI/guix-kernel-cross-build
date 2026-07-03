@@ -2,6 +2,9 @@
 ARG BASE_IMAGE                                                                                                                                                                                                                                                                                                           
 FROM $BASE_IMAGE  
 
+# use fast mirror
+RUN sed -i 's|repo.openeuler.org|fast-mirror.isrc.ac.cn/openeuler|g' /etc/yum.repos.d/openEuler.repo
+
 # install packages
 RUN dnf makecache && \
     dnf install -y wget xz shadow dracut rsync git gpg tar ca-certificates && \
@@ -45,6 +48,9 @@ RUN mkdir /srv/guix_result
 # copy script
 COPY guix-cross-build /usr/bin/guix-cross-build
 RUN chmod +x /usr/bin/guix-cross-build
+
+# clean up guix checkouts subdirectories to reduce image size
+RUN find /root/.cache/guix/checkouts/ -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
 
 ENTRYPOINT ["/entry-point.sh"]
 CMD ["sh"]

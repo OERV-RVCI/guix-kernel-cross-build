@@ -77,7 +77,8 @@ popd
 cat /channels-lock.scm
 
 # calculate the kernel repo hash based on commitid
-guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit})
+guix_download_log=${TEMP_DIR}/guix-download.log
+guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit} 2> ${guix_download_log})
 repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
 if [ -z "${repo_hash}" ];then
     echo "hash command error"
@@ -123,6 +124,7 @@ fi
 
 # copy result from guix result link
 mkdir -p ${RESULT_PATH}/${git_commit}
+cp ${guix_download_log} ${RESULT_PATH}/${git_commit}/
 rsync -avP ${TEMP_DIR}/${git_commit}/ ${RESULT_PATH}/${git_commit}/
 
 # create modules archive
