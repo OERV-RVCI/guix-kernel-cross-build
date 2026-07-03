@@ -2,8 +2,10 @@
 ARG BASE_IMAGE                                                                                                                                                                                                                                                                                                           
 FROM $BASE_IMAGE  
 
-# use fast mirror
-RUN sed -i 's|repo.openeuler.org|fast-mirror.isrc.ac.cn/openeuler|g' /etc/yum.repos.d/openEuler.repo
+# use fast mirror (only for openEuler)
+RUN if [ -f /etc/yum.repos.d/openEuler.repo ]; then \
+    sed -i 's|repo.openeuler.org|fast-mirror.isrc.ac.cn/openeuler|g' /etc/yum.repos.d/openEuler.repo; \
+    fi
 
 # install packages
 RUN dnf makecache && \
