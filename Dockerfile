@@ -7,6 +7,11 @@ RUN if [ -f /etc/yum.repos.d/openEuler.repo ]; then \
     sed -i 's|repo.openeuler.org|fast-mirror.isrc.ac.cn/openeuler|g' /etc/yum.repos.d/openEuler.repo; \
     fi
 
+# use fast mirror for openruyi
+RUN if [ -f /etc/yum.repos.d/openruyi.repo ]; then \
+    sed -i 's|https://repo.build.openruyi.cn/openruyi/|https://boat.openruyi.cn/unstable/|g' /etc/yum.repos.d/openruyi.repo; \
+    fi
+
 # install packages
 RUN dnf makecache && \
     dnf install -y wget xz shadow dracut rsync git gpg tar ca-certificates && \
