@@ -5,6 +5,7 @@ FROM $BASE_IMAGE
 # use fast mirror (only for openEuler)
 RUN if [ -f /etc/yum.repos.d/openEuler.repo ]; then \
     sed -i 's|repo.openeuler.org|fast-mirror.isrc.ac.cn/openeuler|g' /etc/yum.repos.d/openEuler.repo; \
+    sed -i 's|^metalink=|#metalink=|g' /etc/yum.repos.d/openEuler.repo; \
     fi
 
 # use fast mirror for openruyi

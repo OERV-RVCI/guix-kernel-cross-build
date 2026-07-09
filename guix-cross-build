@@ -79,10 +79,8 @@ cat /channels-lock.scm
 # calculate the kernel repo hash based on commitid
 guix_download_log=${TEMP_DIR}/guix-download.log
 
-retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path} --commit=${git_commit} > "${guix_download_log}" 2>&1
-
-guix_command_hash=$(cat "${guix_download_log}")
-repo_hash=$(echo "${guix_command_hash}" | grep -oE '[[:xdigit:]]{40}' | tail -1)
+guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path} --commit=${git_commit} 2> "${guix_download_log}")
+repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
 
 if [ -z "${repo_hash}" ]; then
     echo "hash command error, download log:"
