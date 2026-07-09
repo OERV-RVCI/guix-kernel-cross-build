@@ -78,10 +78,15 @@ cat /channels-lock.scm
 
 # calculate the kernel repo hash based on commitid
 guix_download_log=${TEMP_DIR}/guix-download.log
-guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path}  --commit=${git_commit} 2> ${guix_download_log})
-repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
-if [ -z "${repo_hash}" ];then
-    echo "hash command error"
+
+retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path} --commit=${git_commit} > "${guix_download_log}" 2>&1
+
+guix_command_hash=$(cat "${guix_download_log}")
+repo_hash=$(echo "${guix_command_hash}" | grep -oE '[[:xdigit:]]{40}' | tail -1)
+
+if [ -z "${repo_hash}" ]; then
+    echo "hash command error, download log:"
+    tail -50 "${guix_download_log}"
     cat > guix-kernel-build.scm <<EOF
 (use-modules (oerv packages rvck))
 (make-linux-rvck
@@ -105,7 +110,17 @@ fi
 cat guix-kernel-build.scm
 
 # build kernel
-/entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} 
+guix_build_all_log=${TEMP_DIR}/guix-build-all.log
+
+/entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} > "${guix_build_all_log}" 2>&1
+build_ret=$?
+
+if [ $build_ret -ne 0 ]; then
+    echo "Build failed, showing last phase logs:"
+    last_phase=$(grep -n "^starting phase" "${guix_build_all_log}" | tail -1 | cut -d: -f1)
+    sed -n "${last_phase},$ p" "${guix_build_all_log}"
+    exit $build_ret
+fi 
 if [ -L ${TEMP_DIR}/${git_commit} ] && [ -d ${TEMP_DIR}/${git_commit} ];then
     echo "Kernel result dir: ${TEMP_DIR}/${git_commit}"
     if [ -f ${TEMP_DIR}/${git_commit}/Image ];then
@@ -124,14 +139,14 @@ fi
 
 # copy result from guix result link
 mkdir -p ${RESULT_PATH}/${git_commit}
-cp ${guix_download_log} ${RESULT_PATH}/${git_commit}/
-rsync -avP ${TEMP_DIR}/${git_commit}/ ${RESULT_PATH}/${git_commit}/
+cp ${guix_download_log} ${guix_build_all_log} ${RESULT_PATH}/${git_commit}/
+rsync -aP ${TEMP_DIR}/${git_commit}/ ${RESULT_PATH}/${git_commit}/
 
 # create modules archive
 module_path_name=$(ls ${RESULT_PATH}/${git_commit}/lib/modules/)
 module_dir_name=$(basename "$module_path_name")
 depmod -b ${RESULT_PATH}/${git_commit} "$module_dir_name"
-tar -cvzf  ${RESULT_PATH}/${git_commit}/"$module_dir_name".tgz -C ${RESULT_PATH}/${git_commit}/lib/modules/ "$module_dir_name"
+tar -czf  ${RESULT_PATH}/${git_commit}/"$module_dir_name".tgz -C ${RESULT_PATH}/${git_commit}/lib/modules/ "$module_dir_name"
 
 set +e
 
