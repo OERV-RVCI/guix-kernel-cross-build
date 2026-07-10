@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 set -e
 URL=$1
 RESULT_PATH=/srv/guix_result
@@ -59,6 +58,7 @@ else
 fi
 
 # clone kernel repo
+echo "[1/8] Clone kernel repo..."
 TEMP_DIR=$(mktemp -d)
 pushd ${TEMP_DIR}
 
@@ -74,9 +74,12 @@ work_path=$(pwd)
 popd
 
 # channels-lock.scm set guix version with commit, first download from substitute-urls, if substitute-urls download failed, then local build with guix source git repo
+echo "Check guix channels config:"
 cat /channels-lock.scm
+echo ""
 
 # calculate the kernel repo hash based on commitid
+echo "[2/8] Calculate kernel repo hash..."
 guix_download_log=${TEMP_DIR}/guix-download.log
 
 guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path} --commit=${git_commit} 2> "${guix_download_log}")
@@ -108,13 +111,22 @@ fi
 cat guix-kernel-build.scm
 
 # build kernel
+echo "[3/8] Build kernel..."
 guix_build_all_log=${TEMP_DIR}/guix-build-all.log
 
+set +e
 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} > "${guix_build_all_log}" 2>&1
-build_ret=$?
+build_ret=${PIPESTATUS[0]}
+set -e
 
 if [ $build_ret -ne 0 ]; then
-    echo "Build failed, showing last phase logs:"
+    echo ""
+    echo "=========================================="
+    echo "Build failed with exit code: $build_ret"
+    echo "=========================================="
+    echo ""
+    echo "Last phase logs (from 'starting phase build'):"
+    echo ""
     last_phase=$(grep -n "^starting phase" "${guix_build_all_log}" | tail -1 | cut -d: -f1)
     sed -n "${last_phase},$ p" "${guix_build_all_log}"
     exit $build_ret
@@ -136,11 +148,13 @@ if [ -d ${RESULT_PATH}/${git_commit} ];then
 fi
 
 # copy result from guix result link
+echo "[4/8] Copy result..."
 mkdir -p ${RESULT_PATH}/${git_commit}
 cp ${guix_download_log} ${guix_build_all_log} ${RESULT_PATH}/${git_commit}/
-rsync -aP ${TEMP_DIR}/${git_commit}/ ${RESULT_PATH}/${git_commit}/
+rsync -a ${TEMP_DIR}/${git_commit}/ ${RESULT_PATH}/${git_commit}/
 
 # create modules archive
+echo "[5/8] Create modules archive..."
 module_path_name=$(ls ${RESULT_PATH}/${git_commit}/lib/modules/)
 module_dir_name=$(basename "$module_path_name")
 depmod -b ${RESULT_PATH}/${git_commit} "$module_dir_name"
@@ -149,6 +163,7 @@ tar -czf  ${RESULT_PATH}/${git_commit}/"$module_dir_name".tgz -C ${RESULT_PATH}/
 set +e
 
 # create initramfs
+echo "[6/8] Create initramfs..."
 initramfs_chroot=$(mktemp -d)
 mkdir -p ${initramfs_chroot}/dev ${initramfs_chroot}/proc ${initramfs_chroot}/sys ${initramfs_chroot}/run
 mount --bind /dev ${initramfs_chroot}/dev
@@ -194,13 +209,14 @@ else
     exit 1
 fi
 
-rsync -avP ${RESULT_PATH}/${git_commit}/lib/modules/${module_dir_name} ${initramfs_chroot}/lib/modules/
+rsync -a ${RESULT_PATH}/${git_commit}/lib/modules/${module_dir_name} ${initramfs_chroot}/lib/modules/
 chroot ${initramfs_chroot} /bin/bash -c "dracut /root/initramfs.img --no-hostonly --add \" nfs network base \" ${dracut_driver_add} --kver ${module_dir_name} && md5sum /root/initramfs.img > /root/initramfs.img.md5sum"
 md5sum ${RESULT_PATH}/${git_commit}/Image > ${RESULT_PATH}/${git_commit}/Image.md5sum
 cp ${initramfs_chroot}/root/initramfs.img* ${RESULT_PATH}/${git_commit}/
 chmod 0644 ${RESULT_PATH}/${git_commit}/initramfs.img
 
 # Unmount filesystems if they exist
+echo "[7/8] Cleanup..."
 if [ -d "${initramfs_chroot}/dev/pts" ]; then
     umount ${initramfs_chroot}/dev/pts 2>/dev/null || true
 fi
@@ -220,4 +236,9 @@ if [ -d "${initramfs_chroot}/run" ]; then
     umount ${initramfs_chroot}/run 2>/dev/null || true
 fi
 
-ls ${RESULT_PATH}/${git_commit}
+echo ""
+echo "=========================================="
+echo "Build artifacts in ${RESULT_PATH}/${git_commit}:"
+echo "=========================================="
+ls -la ${RESULT_PATH}/${git_commit}/
+echo "[8/8] Done!"
