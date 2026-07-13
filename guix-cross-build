@@ -129,6 +129,11 @@ if [ $build_ret -ne 0 ]; then
     echo ""
     last_phase=$(grep -n "^starting phase" "${guix_build_all_log}" | tail -1 | cut -d: -f1)
     sed -n "${last_phase},$ p" "${guix_build_all_log}"
+    echo ""
+    echo "Cleaning up old dir and saving logs..."
+    [ -d ${RESULT_PATH}/${git_commit} ] && rm -fr ${RESULT_PATH}/${git_commit}
+    mkdir -p ${RESULT_PATH}/${git_commit}
+    cp ${guix_download_log} ${guix_build_all_log} ${RESULT_PATH}/${git_commit}/
     exit $build_ret
 fi 
 if [ -L ${TEMP_DIR}/${git_commit} ] && [ -d ${TEMP_DIR}/${git_commit} ];then
