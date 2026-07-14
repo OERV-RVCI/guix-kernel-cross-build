@@ -245,5 +245,5 @@ echo ""
 echo "=========================================="
 echo "Build artifacts in ${RESULT_PATH}/${git_commit}:"
 echo "=========================================="
-ls -la ${RESULT_PATH}/${git_commit}/
+ls -lh ${RESULT_PATH}/${git_commit}/
 echo "[8/8] Done!"
