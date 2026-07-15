@@ -81,8 +81,16 @@ echo ""
 # calculate the kernel repo hash based on commitid
 echo "[2/8] Calculate kernel repo hash..."
 guix_download_log=${TEMP_DIR}/guix-download.log
-
-guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path} --commit=${git_commit} 2> "${guix_download_log}")
+{
+    echo "=========================================="
+    echo "GUIX DOWNLOAD LOG - START"
+    echo "Repo: ${REPO}"
+    echo "Commit: ${git_commit}"
+    echo "Time: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "=========================================="
+    retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path} --commit=${git_commit} 2>&1
+} > "${guix_download_log}"
+guix_command_hash=$(tail -n +6 "${guix_download_log}")
 repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
 
 if [ -z "${repo_hash}" ]; then
@@ -113,9 +121,18 @@ cat guix-kernel-build.scm
 # build kernel
 echo "[3/8] Build kernel..."
 guix_build_all_log=${TEMP_DIR}/guix-build-all.log
+{
+    echo "=========================================="
+    echo "GUIX BUILD LOG - START"
+    echo "Repo: ${REPO}"
+    echo "Commit: ${git_commit}"
+    echo "Kernel Config: ${kernel_config}"
+    echo "Time: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "=========================================="
+} > "${guix_build_all_log}"
 
 set +e
-/entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} > "${guix_build_all_log}" 2>&1
+/entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} >> "${guix_build_all_log}" 2>&1
 build_ret=${PIPESTATUS[0]}
 set -e
 
