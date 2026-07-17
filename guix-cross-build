@@ -88,9 +88,8 @@ guix_download_log=${TEMP_DIR}/guix-download.log
     echo "Commit: ${git_commit}"
     echo "Time: $(date '+%Y-%m-%d %H:%M:%S')"
     echo "=========================================="
-    retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path} --commit=${git_commit} 2>&1
 } > "${guix_download_log}"
-guix_command_hash=$(tail -n +6 "${guix_download_log}")
+guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path} --commit=${git_commit} 2>> "${guix_download_log}")
 repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
 
 if [ -z "${repo_hash}" ]; then
@@ -145,7 +144,10 @@ if [ $build_ret -ne 0 ]; then
     echo "Last phase logs (from 'starting phase build'):"
     echo ""
     last_phase=$(grep -n "^starting phase" "${guix_build_all_log}" | tail -1 | cut -d: -f1)
-    sed -n "${last_phase},$ p" "${guix_build_all_log}"
+    if [ -z "${last_phase}" ]; then
+        last_phase=1
+    fi
+    sed -n "${last_phase},\$ p" "${guix_build_all_log}"
     echo ""
     echo "Cleaning up old dir and saving logs..."
     [ -d ${RESULT_PATH}/${git_commit} ] && rm -fr ${RESULT_PATH}/${git_commit}
