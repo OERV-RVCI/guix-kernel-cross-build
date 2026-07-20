@@ -2,8 +2,10 @@ name: Docker Image CI
 
 on:
   push:
-    tags: 
-        - "dev-v*"
+    branches:
+      - main
+    tags:
+        - "v*"
   workflow_dispatch:
     inputs:
       docker_tag:
