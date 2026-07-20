@@ -139,7 +139,7 @@ jobs:
       with:
         images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags:
+        tags: |
             type=raw,value=${{ matrix.variant }}-{{tag}}
             type=raw,value=${{ matrix.variant }}-release
 
