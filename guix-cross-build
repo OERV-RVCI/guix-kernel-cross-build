@@ -44,7 +44,7 @@ else
     exit 1
 fi
 if [[ "${REPO}" == "rvck" ]];then
-    kernel_config="rvck_defconfig"
+    kernel_config="defconfig"
     dracut_driver_add=""
 elif [[ "${REPO}" == "rvck-olk" ]];then
     kernel_config="openeuler_defconfig"
