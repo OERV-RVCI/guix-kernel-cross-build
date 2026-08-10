@@ -89,7 +89,7 @@ guix_download_log=${TEMP_DIR}/guix-download.log
     echo "Time: $(date '+%Y-%m-%d %H:%M:%S')"
     echo "=========================================="
 } > "${guix_download_log}"
-guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- download --git file://${work_path} --commit=${git_commit} 2>> "${guix_download_log}")
+guix_command_hash=$(retry 10 30 /entry-point.sh guix time-machine --substitute-urls="https://mirror.sjtu.edu.cn/guix https://ci.guix.gnu.org https://bordeaux.guix.gnu.org" -C /channels-lock.scm -- download --git file://${work_path} --commit=${git_commit} 2>> "${guix_download_log}")
 repo_hash=$(echo ${guix_command_hash} | awk -F' ' '{print $2}')
 
 if [ -z "${repo_hash}" ]; then
@@ -131,7 +131,7 @@ guix_build_all_log=${TEMP_DIR}/guix-build-all.log
 } > "${guix_build_all_log}"
 
 set +e
-/entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} >> "${guix_build_all_log}" 2>&1
+/entry-point.sh guix time-machine --substitute-urls="https://mirror.sjtu.edu.cn/guix https://ci.guix.gnu.org https://bordeaux.guix.gnu.org" -C /channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls="https://mirror.sjtu.edu.cn/guix https://ci.guix.gnu.org https://bordeaux.guix.gnu.org" --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} >> "${guix_build_all_log}" 2>&1
 build_ret=$?
 set -e
 
