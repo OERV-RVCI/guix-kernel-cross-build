@@ -44,7 +44,7 @@ else
     exit 1
 fi
 if [[ "${REPO}" == "rvck" ]];then
-    kernel_config="defconfig"
+    kernel_config="rvck_defconfig"
     dracut_driver_add=""
 elif [[ "${REPO}" == "rvck-olk" ]];then
     kernel_config="openeuler_defconfig"
@@ -132,7 +132,7 @@ guix_build_all_log=${TEMP_DIR}/guix-build-all.log
 
 set +e
 /entry-point.sh guix time-machine --substitute-urls=https://mirror.sjtu.edu.cn/guix -C /channels-lock.scm -- build -f guix-kernel-build.scm --substitute-urls=https://mirror.sjtu.edu.cn/guix --target=riscv64-linux-gnu -r ${TEMP_DIR}/${git_commit} >> "${guix_build_all_log}" 2>&1
-build_ret=${PIPESTATUS[0]}
+build_ret=$?
 set -e
 
 if [ $build_ret -ne 0 ]; then
