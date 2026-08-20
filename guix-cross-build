@@ -52,6 +52,9 @@ elif [[ "${REPO}" == "rvck-olk" ]];then
 elif [[ "${REPO}" == "linux" ]];then
     kernel_config="defconfig"
     dracut_driver_add=""
+elif [[ "${REPO}" == "openruyi-linux" ]];then
+    kernel_config="defconfig"
+    dracut_driver_add=""
 else
     echo "kernel_config未匹配到有效信息"
     exit 1
