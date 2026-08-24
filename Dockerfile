@@ -45,7 +45,17 @@ RUN pushd /tmp && \
 
 # guix work environment download and build guix 
 RUN --security=insecure sh -c '/entry-point.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- describe --fallback'
-RUN --security=insecure sh -c '/entry-point-disable-chroot.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- shell -D linux-libre --search-paths' 
+# Pre-cache Guix dependencies for the kernel cross-compile closure into the image.
+# This step realizes (downloads substitutes for) linux-libre@riscv64-linux-gnu and
+# every transitive dep (gcc cross toolchain, binutils, libc, ...). The downloads
+# land in /gnu/store and become part of the image, so `guix-cross-build` no longer
+# needs to hit the substitute servers at runtime.
+# --fallback allows local build if a substitute is missing for any item.
+# --no-grafts avoids graft updates that may force extra downloads.
+RUN --security=insecure sh -c '/entry-point-disable-chroot.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- build linux-libre --target=riscv64-linux-gnu --fallback --no-grafts'
+# Print environment variable definitions for the kernel build environment (kept
+# for visibility in Docker build logs; the shell would not enter interactively).
+RUN --security=insecure sh -c '/entry-point-disable-chroot.sh guix time-machine --substitute-urls='https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://mirror.sjtu.edu.cn/guix' -C /channels-lock.scm -- shell -D linux-libre --search-paths'
 
 # recovery guix source url
 #RUN sed -i "s@https://codeberg.org/guix/guix.git@https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git@" /channels-lock.scm
