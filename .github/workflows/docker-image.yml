@@ -4,6 +4,7 @@ on:
   push:
     tags:
         - "v*"
+        - "dev-v*"
   workflow_dispatch:
     inputs:
       docker_tag:
@@ -141,7 +142,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
             type=raw,value=${{ matrix.variant }}-{{tag}}
-            type=raw,value=${{ matrix.variant }}-release
+            type=raw,value=${{ matrix.variant }}-release,enable=${{ !startsWith(github.ref, 'refs/tags/dev-v') }}
+            type=raw,value=${{ matrix.variant }}-dev,enable=${{ startsWith(github.ref, 'refs/tags/dev-v') }}
 
     - name: Docker Setup BuildX
       uses: docker/setup-buildx-action@v3
