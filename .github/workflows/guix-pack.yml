@@ -120,19 +120,17 @@ jobs:
           popd >/dev/null
           rm -rf "${tmpdir}"
 
-          # 官方约定的 profile 软链,供 $GUIX_PROFILE/etc/profile 引用
-          sudo mkdir -p /root/.config/guix
-          sudo ln -sf /var/guix/profiles/per-user/root/current-guix \
-                      /root/.config/guix/current
+          # 注意:不能用 /root/.config/guix/current 软链,因 /root 模式 700
+          # runner 用户无权访问;改用裸路径 /var/guix/profiles/per-user/root/current-guix
 
           # 全局 PATH/语种/证书环境,所有后续步骤 source 此文件
           # 用 ${VAR:-} 兼容未设值,避免 set -u 触发 unbound variable
           sudo tee /etc/profile.d/guix.sh >/dev/null <<'EOF'
-          export GUIX_PROFILE="/root/.config/guix/current"
+          export GUIX_PROFILE="/var/guix/profiles/per-user/root/current-guix"
           export PATH="${GUIX_PROFILE}/bin:${GUIX_PROFILE}/sbin:${PATH:-}"
           export INFOPATH="${GUIX_PROFILE}/share/info:${INFOPATH:-}"
           export MANPATH="${GUIX_PROFILE}/share/man:${MANPATH:-}"
-          export GUIX_LOCPATH="/var/guix/profiles/per-user/root/current-guix/lib/locale"
+          export GUIX_LOCPATH="${GUIX_PROFILE}/lib/locale"
           export SSL_CERT_DIR=/etc/ssl/certs
           export GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
           EOF
