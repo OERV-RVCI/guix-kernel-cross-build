@@ -1,4 +1,15 @@
-name: Docker Image CI
+# ============================================================
+# ⚠️  本文件已被禁用,GitHub Actions 不会触发执行
+# ============================================================
+# 后缀 .disabled 让 GitHub 忽略此文件,避免与新流水线重复触发。
+# 原文件: .github/workflows/docker-image.yml
+# 替代者: .github/workflows/guix-pack.yml
+#   - dev 分支推送 / dev-v* 标签 / workflow_dispatch → 走 guix-pack.yml
+#   - 原文件中 v* (release) 流程未迁移,如需恢复请:
+#       1) 将本文件改回 docker-image.yml
+#       2) 移除 on.push.tags 里的 dev-v* 行(已由新流水线接管)
+# ============================================================
+name: Docker Image CI (disabled)
 
 on:
   push:
@@ -10,7 +21,9 @@ on:
       docker_tag:
         description: 'guix docker image tag'
         required: true
-        type: string    
+        type: string
+
+# --- 下方原内容保持不变,仅顶部添加说明 ---
 
 env:
   REGISTRY: hub.oepkgs.net

@@ -1,0 +1,373 @@
+name: Guix Pack Linux Build
+
+# 在全新 ubuntu-latest 环境从零安装 Guix 1.5.0,使用 guix time-machine
+# 拉取指定 commit,执行 `guix pack -f docker` 把 manifest.scm 描述的
+# riscv64-linux-gnu 交叉工具链打包为 Docker 镜像。
+#
+# 沿用旧 docker-image.yml(已重命名为 .disabled)的标签/命名约定:
+#   REGISTRY/IMAGE_NAME = hub.oepkgs.net/oerv-ci/guix-kernel-cross-build
+#
+#   触发            推送到 registry 的 tag
+#   v*        →     <tag>            + release
+#   dev-v*    →     <tag>            + dev
+#   dispatch  →     <docker_tag>     (留空 → latest)
+#
+# PACK_TAG 是 guix pack 内部镜像 tag,仅供 docker load 后 retag 使用,
+# 不会出现在最终推送列表里。本流水线不依赖任何 base image,在 dev / main
+# 分支均可直接使用,触发条件为纯 tag / 手动 dispatch。
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "dev-v*"
+  workflow_dispatch:
+    inputs:
+      guix_commit:
+        description: 'guix time-machine commit(覆盖默认值)'
+        required: true
+        default: '380e3fa8005d2dd393143a208631cf672b8e838a'
+        type: string
+      docker_tag:
+        description: '手动触发的镜像 tag(留空则推送 latest)'
+        required: false
+        type: string
+
+env:
+  GUIX_VERSION: '1.5.0'
+  DEFAULT_GUIX_COMMIT: '380e3fa8005d2dd393143a208631cf672b8e838a'
+  REGISTRY: hub.oepkgs.net
+  IMAGE_NAME: oerv-ci/guix-kernel-cross-build
+  PACK_TAG: guix-pack
+  SUBSTITUTE_URLS: 'https://ci.guix.gnu.org https://bordeaux.guix.gnu.org https://mirror.sjtu.edu.cn/guix'
+
+jobs:
+  pack:
+    name: guix pack → docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+
+    steps:
+      - name: Free up disk space on runner
+        run: |
+          echo "Before cleanup:"
+          df -h / /tmp
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                       /opt/hostedtoolcache/CodeQL /opt/microsoft
+          sudo apt-get clean
+          echo "After cleanup:"
+          df -h / /tmp
+
+      - uses: actions/checkout@v4
+
+      - name: Install Guix
+        env:
+          # 镜像源按优先级排序,任一可用即停;全部失效才报错
+          GUIX_MIRRORS: |
+            https://mirrors.sjtug.sjtu.edu.cn/gnu/guix
+            https://mirror.nju.edu.cn/gnu/guix
+            https://mirrors.tuna.tsinghua.edu.cn/gnu/guix
+            https://mirrors.ustc.edu.cn/gnu/guix
+            https://ftp.gnu.org/gnu/guix
+        run: |
+          set -euo pipefail
+          echo "==> Installing Guix ${GUIX_VERSION}"
+
+          # guix-daemon 需要 guixbuild 组 + N 个 builder 用户
+          sudo groupadd --system guixbuild 2>/dev/null || true
+          for i in $(seq 1 10); do
+            sudo useradd -g guixbuild -G guixbuild -d /var/empty \
+                         -s /usr/sbin/nologin -M -N \
+                         -u $((30000 + i)) "guixbuilder${i}" 2>/dev/null || true
+          done
+
+          tarball="guix-binary-${GUIX_VERSION}.x86_64-linux.tar.xz"
+
+          # 多镜像源回退下载,顺带校验 xz magic 防止误把 404 HTML 当 xz
+          download_with_fallback() {
+            local file="$1"; shift
+            local mirrors=()
+            while IFS= read -r m; do
+              [ -n "${m}" ] && mirrors+=("${m}")
+            done <<< "${GUIX_MIRRORS}"
+
+            for mirror in "${mirrors[@]}"; do
+              local url="${mirror%/}/${file}"
+              echo "    trying ${url}"
+              if wget -q --timeout=60 --tries=2 -O "${file}.part" "${url}"; then
+                if [ -s "${file}.part" ] && file "${file}.part" | grep -qi 'xz compressed'; then
+                  mv "${file}.part" "${file}"
+                  echo "    ✔ downloaded from ${mirror}"
+                  return 0
+                fi
+                echo "    ✘ not a valid xz file"
+                rm -f "${file}.part"
+              else
+                echo "    ✘ wget failed"
+                rm -f "${file}.part"
+              fi
+            done
+            echo "::error::All mirrors failed for ${file}"
+            return 1
+          }
+
+          tmpdir="$(mktemp -d)"
+          pushd "${tmpdir}" >/dev/null
+          download_with_fallback "${tarball}"
+          tar -xf "${tarball}"
+          sudo mkdir -p /var/guix
+          sudo mv gnu/* /var/guix/
+          sudo ln -sf /var/guix/profiles/per-user/root/current /root/.guix-profile
+          popd >/dev/null
+          rm -rf "${tmpdir}"
+
+          # 全局 PATH/语种/证书环境,所有后续步骤 source 此文件
+          sudo tee /etc/profile.d/guix.sh >/dev/null <<'EOF'
+          export PATH="/var/guix/profiles/per-user/root/current/bin:/var/guix/profiles/per-user/root/current/sbin:${PATH}"
+          export INFOPATH="/var/guix/profiles/per-user/root/current/share/info:${INFOPATH}"
+          export MANPATH="/var/guix/profiles/per-user/root/current/share/man:${MANPATH}"
+          export GUIX_LOCPATH="/var/guix/profiles/per-user/root/current/lib/locale"
+          export SSL_CERT_DIR=/etc/ssl/certs
+          export GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
+          EOF
+          sudo chmod 0755 /etc/profile.d/guix.sh
+          # shellcheck disable=SC1091
+          source /etc/profile.d/guix.sh
+
+          # 守护进程默认 substitute URL(供 guix-daemon.conf 使用)
+          sudo mkdir -p /etc/guix
+          sudo tee /etc/guix/guix-daemon.conf >/dev/null <<EOF
+          substitute-urls = ${SUBSTITUTE_URLS}
+          EOF
+          cat /etc/guix/guix-daemon.conf
+
+          guix --version
+
+      - name: Start guix-daemon
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091
+          source /etc/profile.d/guix.sh
+
+          echo "==> Starting guix-daemon"
+          sudo /var/guix/profiles/per-user/root/current/bin/guix-daemon \
+               --build-users-group=guixbuild \
+               --substitute-urls="${SUBSTITUTE_URLS}" \
+               >/tmp/guix-daemon.log 2>&1 &
+          echo $! | sudo tee /var/run/guix-daemon.pid >/dev/null
+
+          # 等 socket 就绪,最多 30s
+          for i in $(seq 1 30); do
+            if guix --version >/dev/null 2>&1; then
+              echo "guix-daemon is up (pid=$(cat /var/run/guix-daemon.pid))"
+              guix --version
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::guix-daemon failed to start"
+          sudo cat /tmp/guix-daemon.log
+          exit 1
+
+      - name: Show manifest.scm
+        # 失败时方便在日志里核对实际打包的 manifest
+        run: cat manifest.scm
+
+      - name: Resolve parameters
+        id: params
+        env:
+          INPUT_GUIX_COMMIT: ${{ github.event.inputs.guix_commit }}
+          INPUT_DOCKER_TAG:  ${{ github.event.inputs.docker_tag }}
+        run: |
+          guix_commit="${INPUT_GUIX_COMMIT:-${DEFAULT_GUIX_COMMIT}}"
+          docker_tag="${INPUT_DOCKER_TAG:-}"
+
+          {
+            echo "guix_commit=${guix_commit}"
+            echo "docker_tag=${docker_tag}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Resolved parameters:"
+          echo "  guix_commit = ${guix_commit}"
+          echo "  docker_tag  = ${docker_tag:-<from git ref>}"
+
+      - name: Run guix time-machine pack
+        env:
+          GUIX_COMMIT: ${{ steps.params.outputs.guix_commit }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091
+          source /etc/profile.d/guix.sh
+
+          pack_dir="${RUNNER_TEMP}/guix-pack-out"
+          rm -rf "${pack_dir}" && mkdir -p "${pack_dir}"
+          cd "${pack_dir}"
+
+          echo "==> guix time-machine ${GUIX_COMMIT}"
+          echo "==> image-tag=${PACK_TAG} (内部)"
+
+          guix time-machine -q --commit="${GUIX_COMMIT}" -- \
+               pack -m "${{ github.workspace }}/manifest.scm" \
+                    -f docker \
+                    --max-layers=1000 \
+                    --no-offload \
+                    --image-tag="${PACK_TAG}" \
+                    --save-provenance \
+                    --entry-point=bin/bash \
+                    -S /bin/sh=bin/sh \
+                    -S /usr/bin/env=bin/env
+
+          echo "==> pack finished"
+          ls -lh "${pack_dir}"
+
+      - name: Locate produced docker tarball(s)
+        id: locate
+        run: |
+          set -euo pipefail
+          pack_dir="${RUNNER_TEMP}/guix-pack-out"
+
+          mapfile -t docker_tars < <(find "${pack_dir}" -maxdepth 2 -type f -name '*.tar' | sort)
+          mapfile -t provenance  < <(find "${pack_dir}" -maxdepth 2 -type f -name '*.json' | sort)
+
+          if [ "${#docker_tars[@]}" -eq 0 ]; then
+            echo "::error::guix pack did not produce any .tar file"
+            ls -lhR "${pack_dir}"
+            exit 1
+          fi
+
+          {
+            echo "docker_tars<<EOF"
+            printf '%s\n' "${docker_tars[@]}"
+            echo "EOF"
+            echo "provenance<<EOF"
+            printf '%s\n' "${provenance[@]:-}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Detected docker tarballs:"
+          printf '  %s\n' "${docker_tars[@]}"
+          if [ "${#provenance[@]}" -gt 0 ]; then
+            echo "Detected provenance files:"
+            printf '  %s\n' "${provenance[@]}"
+          fi
+
+      - name: Stage artifacts for upload
+        # 只把 .tar(镜像) + .json(provenance) 拷出来,避免把临时文件一并上传
+        run: |
+          set -euo pipefail
+          stage="${RUNNER_TEMP}/guix-pack-stage"
+          rm -rf "${stage}" && mkdir -p "${stage}"
+
+          while IFS= read -r f; do
+            [ -n "${f}" ] || continue
+            cp -v "${f}" "${stage}/"
+          done < <(echo "${{ steps.locate.outputs.docker_tars }}" | grep -v '^EOF$')
+
+          while IFS= read -r f; do
+            [ -n "${f}" ] || continue
+            cp -v "${f}" "${stage}/"
+          done < <(echo "${{ steps.locate.outputs.provenance }}" | grep -v '^EOF$')
+
+          ls -lh "${stage}"
+
+      - name: Upload docker tarball(s) as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: guix-pack
+          path: ${{ runner.temp }}/guix-pack-stage/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Stop guix-daemon
+        if: always()
+        # always() 触发,即便前序步骤失败也清理守护进程
+        run: |
+          set +e
+          if [ -f /var/run/guix-daemon.pid ]; then
+            pid="$(cat /var/run/guix-daemon.pid)"
+            if kill -0 "${pid}" 2>/dev/null; then
+              echo "Stopping guix-daemon (pid=${pid})"
+              sudo kill "${pid}"
+              sleep 2
+              sudo kill -9 "${pid}" 2>/dev/null || true
+            fi
+          fi
+          pkill -9 guix-daemon 2>/dev/null || true
+
+  push:
+    name: push image to registry
+    needs: pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DOCKER_TAG_INPUT: ${{ github.event.inputs.docker_tag }}
+
+    steps:
+      - name: Download docker tarball(s)
+        uses: actions/download-artifact@v4
+        with:
+          name: guix-pack
+          path: ${{ runner.temp }}/guix-pack-stage/
+
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # 命名规则参见文件顶部;此处仅用 enable 区分 v*/dev-v*
+          tags: |
+            type=raw,value={{tag}}
+            type=raw,value=release,enable=${{ !startsWith(github.ref, 'refs/tags/dev-v') }}
+            type=raw,value=dev,enable=${{ startsWith(github.ref, 'refs/tags/dev-v') }}
+            type=raw,value=${{ env.DOCKER_TAG_INPUT }},enable=${{ github.event_name == 'workflow_dispatch' && env.DOCKER_TAG_INPUT != '' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' && env.DOCKER_TAG_INPUT == '' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ vars.DOCKERHUB_OEPKGS_OERVCI_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_OEPKGS_OERVCI_TOKEN }}
+
+      - name: Load tarball(s) and re-tag
+        # guix pack 加载后是 ${PACK_TAG}:latest,据此 retag 到 metadata-action 生成的最终 tag
+        run: |
+          set -euo pipefail
+          stage="${{ runner.temp }}/guix-pack-stage"
+
+          shopt -s nullglob
+          tars=("${stage}"/*.tar)
+          if [ "${#tars[@]}" -eq 0 ]; then
+            echo "::error::no .tar artifact found in ${stage}"
+            exit 1
+          fi
+
+          for t in "${tars[@]}"; do
+            echo "==> Loading ${t}"
+            docker load --input "${t}"
+          done
+
+          echo "==> Loaded images:"
+          docker image ls --format '  {{.Repository}}:{{.Tag}}' \
+            | grep -E "^${PACK_TAG}:" || true
+
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            docker tag "${PACK_TAG}:latest" "${tag}"
+          done
+
+          echo "==> Final tags to push:"
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            echo "  ${tag}"
+          done
+
+      - name: Push image(s)
+        run: |
+          set -euo pipefail
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            echo "==> Pushing ${tag}"
+            docker push "${tag}"
+          done
