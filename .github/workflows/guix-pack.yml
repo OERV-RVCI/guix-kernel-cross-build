@@ -114,20 +114,25 @@ jobs:
           tmpdir="$(mktemp -d)"
           pushd "${tmpdir}" >/dev/null
           download_with_fallback "${tarball}"
-          tar -xf "${tarball}"
-          sudo mkdir -p /var/guix
-          sudo mv gnu/* /var/guix/
-          sudo ln -sf /var/guix/profiles/per-user/root/current /root/.guix-profile
+          # tarball 内是 ./gnu/... 与 ./var/guix/... 的相对路径,
+          # 需直接 -C / 解压,把它们落到正确位置(不能再 mv gnu/* /var/guix/)
+          sudo tar -C / -xf "${tarball}"
           popd >/dev/null
           rm -rf "${tmpdir}"
+
+          # 官方约定的 profile 软链,供 $GUIX_PROFILE/etc/profile 引用
+          sudo mkdir -p /root/.config/guix
+          sudo ln -sf /var/guix/profiles/per-user/root/current-guix \
+                      /root/.config/guix/current
 
           # 全局 PATH/语种/证书环境,所有后续步骤 source 此文件
           # 用 ${VAR:-} 兼容未设值,避免 set -u 触发 unbound variable
           sudo tee /etc/profile.d/guix.sh >/dev/null <<'EOF'
-          export PATH="/var/guix/profiles/per-user/root/current/bin:/var/guix/profiles/per-user/root/current/sbin:${PATH:-}"
-          export INFOPATH="/var/guix/profiles/per-user/root/current/share/info:${INFOPATH:-}"
-          export MANPATH="/var/guix/profiles/per-user/root/current/share/man:${MANPATH:-}"
-          export GUIX_LOCPATH="/var/guix/profiles/per-user/root/current/lib/locale"
+          export GUIX_PROFILE="/root/.config/guix/current"
+          export PATH="${GUIX_PROFILE}/bin:${GUIX_PROFILE}/sbin:${PATH:-}"
+          export INFOPATH="${GUIX_PROFILE}/share/info:${INFOPATH:-}"
+          export MANPATH="${GUIX_PROFILE}/share/man:${MANPATH:-}"
+          export GUIX_LOCPATH="/var/guix/profiles/per-user/root/current-guix/lib/locale"
           export SSL_CERT_DIR=/etc/ssl/certs
           export GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
           EOF
@@ -151,7 +156,7 @@ jobs:
           source /etc/profile.d/guix.sh
 
           echo "==> Starting guix-daemon"
-          sudo /var/guix/profiles/per-user/root/current/bin/guix-daemon \
+          sudo "${GUIX_PROFILE}/bin/guix-daemon" \
                --build-users-group=guixbuild \
                --substitute-urls="${SUBSTITUTE_URLS}" \
                >/tmp/guix-daemon.log 2>&1 &
