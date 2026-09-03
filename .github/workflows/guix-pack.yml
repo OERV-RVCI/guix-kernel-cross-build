@@ -122,10 +122,11 @@ jobs:
           rm -rf "${tmpdir}"
 
           # 全局 PATH/语种/证书环境,所有后续步骤 source 此文件
+          # 用 ${VAR:-} 兼容未设值,避免 set -u 触发 unbound variable
           sudo tee /etc/profile.d/guix.sh >/dev/null <<'EOF'
-          export PATH="/var/guix/profiles/per-user/root/current/bin:/var/guix/profiles/per-user/root/current/sbin:${PATH}"
-          export INFOPATH="/var/guix/profiles/per-user/root/current/share/info:${INFOPATH}"
-          export MANPATH="/var/guix/profiles/per-user/root/current/share/man:${MANPATH}"
+          export PATH="/var/guix/profiles/per-user/root/current/bin:/var/guix/profiles/per-user/root/current/sbin:${PATH:-}"
+          export INFOPATH="/var/guix/profiles/per-user/root/current/share/info:${INFOPATH:-}"
+          export MANPATH="/var/guix/profiles/per-user/root/current/share/man:${MANPATH:-}"
           export GUIX_LOCPATH="/var/guix/profiles/per-user/root/current/lib/locale"
           export SSL_CERT_DIR=/etc/ssl/certs
           export GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
