@@ -39,7 +39,7 @@ env:
   REGISTRY: hub.oepkgs.net
   IMAGE_NAME: oerv-ci/guix-kernel-cross-build
   PACK_TAG: guix-pack
-  SUBSTITUTE_URLS: 'https://ci.guix.gnu.org https://bordeaux.guix.gnu.org https://mirror.sjtu.edu.cn/guix'
+  SUBSTITUTE_URLS: 'https://ci.guix.gnu.org https://bordeaux.guix.gnu.org'
 
 jobs:
   pack:
@@ -63,12 +63,13 @@ jobs:
       - name: Install Guix
         env:
           # 镜像源按优先级排序,任一可用即停;全部失效才报错
+          # 只用海外源,避免国内镜像内容滞后导致 hash 失配
           GUIX_MIRRORS: |
-            https://mirrors.sjtug.sjtu.edu.cn/gnu/guix
-            https://mirror.nju.edu.cn/gnu/guix
-            https://mirrors.tuna.tsinghua.edu.cn/gnu/guix
-            https://mirrors.ustc.edu.cn/gnu/guix
             https://ftp.gnu.org/gnu/guix
+            https://ftpmirror.gnu.org/guix
+            https://alpha.gnu.org/gnu/guix
+            https://mirrors.kernel.org/gnu/guix
+            https://mirror.csclub.uwaterloo.ca/gnu/guix
         run: |
           set -euo pipefail
           echo "==> Installing Guix ${GUIX_VERSION}"
@@ -195,22 +196,6 @@ jobs:
           echo "  guix_commit = ${guix_commit}"
           echo "  docker_tag  = ${docker_tag:-<from git ref>}"
 
-      - name: Bootstrap newer guix (no substitutes for sources)
-        # guix time-machine 拉新 commit 时,会先构建一份对应 commit 的 guix
-        # (bootstrap 阶段)。该阶段要下载 source tarball,但 commit 380e3fa8
-        # 引入的某些 source 在 substitute server 上 nar hash 失配。
-        # 用 --no-substitutes 单独跑一次 bootstrap,让 guix 直接从 upstream URL
-        # 拉 source 本地构建,结果缓存到 /gnu/store,后续 pack 步骤可复用。
-        env:
-          GUIX_COMMIT: ${{ steps.params.outputs.guix_commit }}
-        run: |
-          set -euo pipefail
-          # shellcheck disable=SC1091
-          source /etc/profile.d/guix.sh
-
-          echo "==> Bootstrapping guix ${GUIX_COMMIT} (--no-substitutes)"
-          guix time-machine --no-substitutes --commit="${GUIX_COMMIT}" -- describe
-
       - name: Run guix time-machine pack
         env:
           GUIX_COMMIT: ${{ steps.params.outputs.guix_commit }}
@@ -225,10 +210,8 @@ jobs:
 
           echo "==> guix time-machine ${GUIX_COMMIT}"
           echo "==> image-tag=${PACK_TAG} (内部)"
-          # --fallback   : substitute hash 失配时回退本地构建(对 manifest 包生效)
+          # --fallback   : substitute hash 失配时回退本地构建
           # --no-grafts  : 禁用 graft 更新,避免额外的 source 拉取
-          # 这里的 substitute / graft 与上面的 bootstrap 是两回事:
-          # bootstrap 已经在前一步用 --no-substitutes 走完,这里只为 manifest 的包兜底。
           guix time-machine -q --commit="${GUIX_COMMIT}" -- \
                pack -m "${{ github.workspace }}/manifest.scm" \
                     -f docker \
