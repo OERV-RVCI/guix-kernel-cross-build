@@ -209,12 +209,15 @@ jobs:
 
           echo "==> guix time-machine ${GUIX_COMMIT}"
           echo "==> image-tag=${PACK_TAG} (内部)"
-
+          # --fallback   : substitute hash 失配时回退本地构建
+          # --no-grafts  : 禁用 graft 更新,避免额外的 source 拉取
           guix time-machine -q --commit="${GUIX_COMMIT}" -- \
                pack -m "${{ github.workspace }}/manifest.scm" \
                     -f docker \
                     --max-layers=1000 \
                     --no-offload \
+                    --fallback \
+                    --no-grafts \
                     --image-tag="${PACK_TAG}" \
                     --save-provenance \
                     --entry-point=bin/bash \
