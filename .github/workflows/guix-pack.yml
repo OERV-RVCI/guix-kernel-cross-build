@@ -38,7 +38,7 @@ env:
   REGISTRY: hub.oepkgs.net
   IMAGE_NAME: oerv-ci/guix-kernel-cross-build
   PACK_TAG: guix-pack
-  SUBSTITUTE_URLS: 'https://ci.guix.gnu.org https://bordeaux.guix.gnu.org'
+  SUBSTITUTE_URLS: 'https://ci.guix.gnu.org https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net https://guix.cbaines.net'
 
 jobs:
   pack:
