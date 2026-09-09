@@ -1,8 +1,8 @@
 name: Guix Pack Linux Build
 
-# 在全新 ubuntu-latest 环境从零安装 Guix 1.5.0,使用 guix time-machine
-# 拉取指定 commit,执行 `guix pack -f docker` 把 manifest.scm 描述的
-# riscv64-linux-gnu 交叉工具链打包为 Docker 镜像。
+# 在 CI 环境中从零安装最新 Guix(从 ci.z572.online 单一源),使用
+# guix time-machine 拉取指定 commit,执行 `guix pack -f docker` 把
+# manifest.scm 描述的 riscv64-linux-gnu 交叉工具链打包为 Docker 镜像。
 #
 # 沿用旧 docker-image.yml(已重命名为 .disabled)的标签/命名约定:
 #   REGISTRY/IMAGE_NAME = hub.oepkgs.net/oerv-ci/guix-kernel-cross-build
@@ -34,7 +34,6 @@ on:
         type: string
 
 env:
-  GUIX_VERSION: '1.5.0'
   DEFAULT_GUIX_COMMIT: '380e3fa8005d2dd393143a208631cf672b8e838a'
   REGISTRY: hub.oepkgs.net
   IMAGE_NAME: oerv-ci/guix-kernel-cross-build
@@ -61,17 +60,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Guix
-        env:
-          # 镜像源按优先级排序,任一可用即停;全部失效才报错
-          # 只用海外源,避免国内镜像内容滞后导致 hash 失配
-          GUIX_MIRRORS: |
-            https://ftp.gnu.org/gnu/guix
-            https://alpha.gnu.org/gnu/guix
-            https://mirrors.kernel.org/gnu/guix
-            https://mirror.csclub.uwaterloo.ca/gnu/guix
         run: |
           set -euo pipefail
-          echo "==> Installing Guix ${GUIX_VERSION}"
+          echo "==> Installing latest Guix from ci.z572.online"
 
           # guix-daemon 需要 guixbuild 组 + N 个 builder 用户
           sudo groupadd --system guixbuild 2>/dev/null || true
@@ -81,39 +72,26 @@ jobs:
                          -u $((30000 + i)) "guixbuilder${i}" 2>/dev/null || true
           done
 
-          tarball="guix-binary-${GUIX_VERSION}.x86_64-linux.tar.xz"
-
-          # 多镜像源回退下载,顺带校验 xz magic 防止误把 404 HTML 当 xz
-          download_with_fallback() {
-            local file="$1"; shift
-            local mirrors=()
-            while IFS= read -r m; do
-              [ -n "${m}" ] && mirrors+=("${m}")
-            done <<< "${GUIX_MIRRORS}"
-
-            for mirror in "${mirrors[@]}"; do
-              local url="${mirror%/}/${file}"
-              echo "    trying ${url}"
-              if wget -q --timeout=60 --tries=2 -O "${file}.part" "${url}"; then
-                if [ -s "${file}.part" ] && file "${file}.part" | grep -qi 'xz compressed'; then
-                  mv "${file}.part" "${file}"
-                  echo "    ✔ downloaded from ${mirror}"
-                  return 0
-                fi
-                echo "    ✘ not a valid xz file"
-                rm -f "${file}.part"
-              else
-                echo "    ✘ wget failed"
-                rm -f "${file}.part"
-              fi
-            done
-            echo "::error::All mirrors failed for ${file}"
-            return 1
-          }
+          # 单一来源,统一存为 guix-binary.tar.xz,不依赖响应头里的 filename
+          tarball="guix-binary.tar.xz"
+          guix_url="https://ci.z572.online/search/latest/archive?query=spec:guix-binary+status:success+system:x86_64-linux+guix-binary.tar.xz"
 
           tmpdir="$(mktemp -d)"
           pushd "${tmpdir}" >/dev/null
-          download_with_fallback "${tarball}"
+          echo "    trying ${guix_url}"
+          if ! wget -q --timeout=120 --tries=3 -O "${tarball}.part" "${guix_url}"; then
+            echo "::error::Failed to download Guix from ${guix_url}"
+            popd >/dev/null; rm -rf "${tmpdir}"; exit 1
+          fi
+          # 校验 xz magic 防止误把 404 HTML 当 xz
+          if [ ! -s "${tarball}.part" ] || ! file "${tarball}.part" | grep -qi 'xz compressed'; then
+            echo "::error::Downloaded file is not a valid xz tarball"
+            file "${tarball}.part"
+            popd >/dev/null; rm -rf "${tmpdir}"; exit 1
+          fi
+          mv "${tarball}.part" "${tarball}"
+          echo "    ✔ downloaded Guix from ci.z572.online"
+
           # tarball 内是 ./gnu/... 与 ./var/guix/... 的相对路径,
           # 需直接 -C / 解压,把它们落到正确位置(不能再 mv gnu/* /var/guix/)
           sudo tar -C / -xf "${tarball}"
@@ -145,6 +123,7 @@ jobs:
           EOF
           cat /etc/guix/guix-daemon.conf
 
+          # 装完探测实际版本(替代硬编码 GUIX_VERSION)
           guix --version
 
       - name: Start guix-daemon
