@@ -138,7 +138,33 @@ jobs:
             echo "    ✔ signing-key.pub already present (from tarball)"
           fi
 
-          # 1) 本地 Guix mirror(channels-lock.scm 在用,可达性最稳)
+          # 1) 公开 Guix 仓库的 git archive,抓 etc/substitutes/ 整个目录
+          #    该目录下每台 substitute server 一个 .pub 文件
+          #    (ci.guix.gnu.org.pub / bordeaux.guix.gnu.org.pub / 等)
+          #    cat 拼起来就是 /etc/guix/signing-key.pub 应有的内容
+          if [ "${signing_key_imported}" -eq 0 ] && command -v git >/dev/null; then
+            for git_url in \
+              https://codeberg.org/guix/guix.git \
+              https://git.savannah.gnu.org/guix.git \
+            ; do
+              echo "    trying git archive ${git_url} etc/substitutes/"
+              if git archive --remote="${git_url}" HEAD etc/substitutes 2>/dev/null \
+                 | sudo tar -x -C /tmp/ \
+                 && [ -n "$(sudo ls /tmp/etc/substitutes/*.pub 2>/dev/null)" ]; then
+                sudo cat /tmp/etc/substitutes/*.pub \
+                  | sudo tee /etc/guix/signing-key.pub >/dev/null
+                sudo rm -rf /tmp/etc
+                if [ -s /etc/guix/signing-key.pub ]; then
+                  signing_key_imported=1
+                  echo "    ✔ substitute keys from ${git_url}"
+                  break
+                fi
+              fi
+              sudo rm -rf /tmp/etc
+            done
+          fi
+
+          # 1b) 本地 Guix mirror(channels-lock.scm 在用,可达性最稳)
           if [ "${signing_key_imported}" -eq 0 ] && command -v git >/dev/null; then
             echo "    trying git archive from local Guix mirror"
             if git archive --remote=https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git \
