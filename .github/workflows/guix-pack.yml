@@ -252,6 +252,26 @@ jobs:
           fi
 
           echo "==> pack finished"
+          # guix pack 把 tarball 落到 /gnu/store/<hash>-...docker-pack.tar.gz,
+          # 但新 guix(time-machine 拉的 380e3fa8)在 cwd 不再创建 result 软链
+          # 主动从 /gnu/store 找最近 docker-pack 相关文件(*.tar + provenance *.json)
+          # 拷到 pack_dir
+          echo "==> moving pack output to ${pack_dir}"
+          # 用 find -newer /tmp/guix-pack.log 取本轮 pack 产出的新文件
+          mapfile -t pack_outputs < <(find /gnu/store -maxdepth 1 \
+                                          \( -name '*-docker-pack.tar' \
+                                          -o -name '*-docker-pack.tar.gz' \
+                                          -o -name '*-docker-pack.json' \) \
+                                          -newer /tmp/guix-pack.log 2>/dev/null \
+                                          | sort)
+          if [ "${#pack_outputs[@]}" -eq 0 ]; then
+            echo "::error::no docker-pack output found in /gnu/store after pack"
+            find /gnu/store -maxdepth 1 -name '*-docker-pack*' 2>/dev/null
+            exit 1
+          fi
+          for f in "${pack_outputs[@]}"; do
+            cp -v "${f}" "${pack_dir}/"
+          done
           ls -lh "${pack_dir}"
 
       - name: Locate produced docker tarball(s)
