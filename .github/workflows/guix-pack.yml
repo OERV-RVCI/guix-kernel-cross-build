@@ -379,29 +379,29 @@ jobs:
             type=raw,value=${{ env.DOCKER_TAG_INPUT }},enable=${{ github.event_name == 'workflow_dispatch' && env.DOCKER_TAG_INPUT != '' }}
             type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' && env.DOCKER_TAG_INPUT == '' }}
 
-      - name: Resolve final tags as JSON
+      - name: Resolve final tags
         id: tags
         # docker/metadata-action 的 outputs.tags 是多行 newline-separated
-        # 字符串,内容形如 "REGISTRY/IMAGE:tag"(\"hub.oepkgs.net/.../build:dev-v60\")。
-        # 直接表达式插值到 bash 多行处会换行错位(GH Actions 也会替换
-        # 注释里的表达式,把注释行拆成多行 bash 命令,所以注释里
-        # 不要写表达式)。把多行读成单字符串再 split 成 JSON 数组,
-        # 下游用 jq -r .[] 读,单行无歧义,再也不会撞 multi-line 坑。
-        # 用 `jq -s` + `.[0] | split` 一次性处理:slurp 模式把整个 stdin
-        # 当成一个 JSON 字符串(而不是逐行 parse),避开了 `jq -R` 在
-        # raw 模式下对每行都试图 parse 成 JSON 数字 / 字符串而抛
-        # "Invalid numeric literal" 的坑。
+        # 字符串(每行一条完整 tag,如 "REGISTRY/IMAGE:tag"),直接传
+        # 给下游 mapfile <<< 用即可。不要试图用 jq 把多行再包成 JSON
+        # 数组 - 任何 jq 路径都踩坑:
+        #   - jq -R .        : 每行 parse 成 JSON,撞 "..." 报 invalid
+        #   - jq -Rs         : 实际退化成 raw 模式,行为不如预期
+        #   - jq -s '.[0]|...' : slurp 模式试图把整段当 JSON parse,撞 ":"
+        #                       后 tag 名抛 "Invalid numeric literal"
+        # 最干净的路径:不解析,直接用 GH Actions 的多行 output 格式
+        # (<<EOF ... EOF) 透传到 GITHUB_OUTPUT,下游用 mapfile <<< 切行。
+        # 注意:GITHUB_OUTPUT 块里不要写 GH Actions 表达式,会被替换、
+        # 插入换行,搞坏块结构。
         run: |
           set -euo pipefail
-          tags_json=$(jq -s '.[0] | split("\n") | map(select(. != ""))' \
-                          <<<"${{ steps.meta.outputs.tags }}")
           {
             echo "tags_json<<EOF"
-            echo "${tags_json}"
+            printf '%s\n' "${{ steps.meta.outputs.tags }}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
           echo "Resolved tags:"
-          echo "${tags_json}" | jq -r '.[]' | sed 's/^/  /'
+          printf '%s\n' "${{ steps.meta.outputs.tags }}" | sed 's/^/  /'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -436,9 +436,9 @@ jobs:
           docker image ls --format '  {{.Repository}}:{{.Tag}}' \
             | grep -E "^${PACK_TAG}:" || true
 
-          # 从 JSON 数组读 tag,每行一个,比直接读 meta.outputs.tags(多行
-          # 换行错位)安全得多。
-          mapfile -t final_tags < <(echo "${{ steps.tags.outputs.tags_json }}" | jq -r '.[]')
+          # tags_json 是多行 newline-separated 字符串,mapfile here-string
+          # 按行切。GH Actions 把 \n 当真实换行,here-string 直接吃。
+          mapfile -t final_tags <<<"${{ steps.tags.outputs.tags_json }}"
           for tag in "${final_tags[@]}"; do
             [ -n "${tag}" ] || continue
             docker tag "${PACK_TAG}:latest" "${tag}"
@@ -453,7 +453,7 @@ jobs:
       - name: Push image(s)
         run: |
           set -euo pipefail
-          mapfile -t final_tags < <(echo "${{ steps.tags.outputs.tags_json }}" | jq -r '.[]')
+          mapfile -t final_tags <<<"${{ steps.tags.outputs.tags_json }}"
           for tag in "${final_tags[@]}"; do
             [ -n "${tag}" ] || continue
             echo "==> Pushing ${tag}"
