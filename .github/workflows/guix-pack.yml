@@ -384,11 +384,14 @@ jobs:
         # docker/metadata-action 的 outputs.tags 是多行 newline-separated 字符串,
         # 直接表达式插值到 bash 多行处会换行错位(GH Actions 也会替换
         # 注释里的表达式,把注释行拆成多行 bash 命令,所以注释里
-        # 不要写表达式)。把多行转成 JSON 数组,下游用 jq -r .[] 读,
-        # 单行无歧义,再也不会撞 multi-line 坑。
+        # 不要写表达式)。把多行读成单字符串再 split 成 JSON 数组,
+        # 下游用 jq -r .[] 读,单行无歧义,再也不会撞 multi-line 坑。
+        # 用 jq -Rs 一次性处理,避免 printf | jq -R . | jq -s . 三段
+        # pipeline 在空行 / 拼接边界上出 Invalid numeric literal。
         run: |
           set -euo pipefail
-          tags_json=$(printf '%s\n' "${{ steps.meta.outputs.tags }}" | jq -R . | jq -s .)
+          tags_json=$(printf '%s' "${{ steps.meta.outputs.tags }}" \
+                       | jq -Rs 'split("\n") | map(select(. != ""))')
           {
             echo "tags_json<<EOF"
             echo "${tags_json}"
