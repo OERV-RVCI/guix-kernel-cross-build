@@ -381,17 +381,20 @@ jobs:
 
       - name: Resolve final tags as JSON
         id: tags
-        # docker/metadata-action 的 outputs.tags 是多行 newline-separated 字符串,
+        # docker/metadata-action 的 outputs.tags 是多行 newline-separated
+        # 字符串,内容形如 "REGISTRY/IMAGE:tag"(\"hub.oepkgs.net/.../build:dev-v60\")。
         # 直接表达式插值到 bash 多行处会换行错位(GH Actions 也会替换
         # 注释里的表达式,把注释行拆成多行 bash 命令,所以注释里
         # 不要写表达式)。把多行读成单字符串再 split 成 JSON 数组,
         # 下游用 jq -r .[] 读,单行无歧义,再也不会撞 multi-line 坑。
-        # 用 jq -Rs 一次性处理,避免 printf | jq -R . | jq -s . 三段
-        # pipeline 在空行 / 拼接边界上出 Invalid numeric literal。
+        # 用 `jq -s` + `.[0] | split` 一次性处理:slurp 模式把整个 stdin
+        # 当成一个 JSON 字符串(而不是逐行 parse),避开了 `jq -R` 在
+        # raw 模式下对每行都试图 parse 成 JSON 数字 / 字符串而抛
+        # "Invalid numeric literal" 的坑。
         run: |
           set -euo pipefail
-          tags_json=$(printf '%s' "${{ steps.meta.outputs.tags }}" \
-                       | jq -Rs 'split("\n") | map(select(. != ""))')
+          tags_json=$(jq -s '.[0] | split("\n") | map(select(. != ""))' \
+                          <<<"${{ steps.meta.outputs.tags }}")
           {
             echo "tags_json<<EOF"
             echo "${tags_json}"
