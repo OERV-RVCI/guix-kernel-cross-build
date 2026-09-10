@@ -145,7 +145,7 @@ jobs:
           if [ "${signing_key_imported}" -eq 0 ] && command -v git >/dev/null; then
             for git_url in \
               https://codeberg.org/guix/guix.git \
-              https://git.savannah.gnu.org/guix.git \
+              https://git.savannah.gnu.org/git/guix.git \
             ; do
               echo "    trying git clone --depth=1 ${git_url}"
               tmp_src=$(mktemp -d)
