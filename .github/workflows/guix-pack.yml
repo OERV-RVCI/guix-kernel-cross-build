@@ -123,106 +123,42 @@ jobs:
           EOF
           cat /etc/guix/guix-daemon.conf
 
-          # 导入 substitute 签名公钥(daemon 启动前必须)
-          # 必须从 savannah.gnu.org 下,不能从 ci.guix/bordeaux 自己的
-          # /signing-key.pub 下(那是要被验签的公钥,得外部可信源)
-          # bordeaux.guix.gnu.org / bordeaux-singapore-mirror.cbaines.net
-          # 都用同一把官方密钥,导入一次覆盖所有
-          # 尽力而为:多源回退,失败只 warning 不中断流水线
-          # 安全下载模板:写 .tmp,只 mv 成功的,避免 wget/git 失败时把已有文件破坏成空文件
-          signing_key_imported=0
+          # 导入 substitute 签名公钥 → /etc/guix/acl(由 current-acl 读取)
+          #
+          # 关键:用 `guix archive --authorize < key.pub` 一个个导入,
+          # 让 Guix 自己处理 canonical S-expression 格式。
+          # 不能直接把多个 key cat 到 /etc/guix/signing-key.pub——
+          # guix-daemon 加载 ACL 时,read-string 只取首个 sexp,后续 key
+          # 会污染 buffer,导致 sexp->canonical-sexp 写阶段撞到 #f 报
+          # "unsupported sexp item type"。
+          # 也不用 `guix archive --generate-key`——那只生成 *本地*
+          # archive-import 用的自签密钥,不是 substitute 验签密钥。
+          #
+          # ci.z572.online 的 tarball 自带 4 个官方 substitute 公钥
+          # (share/guix/{ci.guix.info,ci.guix.gnu.org,bordeaux.guix.gnu.org,
+          # berlin.guix.gnu.org}.pub),Ed25519 canonical S-expression 格式。
+          # 第一次 --authorize 调用前,确保 /etc/guix/signing-key.pub 不存在,
+          # 否则 ensure-acl 会先去读它并失败。
+          sudo rm -f /etc/guix/signing-key.pub
+          sudo rm -f /etc/guix/acl
 
-          # 0) tarball 自带的(可能存在);非空就视为已导入
-          if [ -s /etc/guix/signing-key.pub ]; then
-            signing_key_imported=1
-            echo "    ✔ signing-key.pub already present (from tarball)"
-          fi
-
-          # 1) 完整 git clone Guix 源码,直接 cat etc/signing-key.pub
-          #    或 etc/substitutes/*.pub 拼成 daemon 期望的多公钥 S-expression 文件
-          #    codeberg/savannah 禁 git archive --remote 但不禁 clone
-          #    完整 clone 200MB+,在流水线里 30s 内完成
-          if [ "${signing_key_imported}" -eq 0 ] && command -v git >/dev/null; then
-            for git_url in \
-              https://codeberg.org/guix/guix.git \
-              https://git.savannah.gnu.org/git/guix.git \
-            ; do
-              echo "    trying git clone --depth=1 ${git_url}"
-              tmp_src=$(mktemp -d)
-              if git clone --depth=1 --quiet "${git_url}" "${tmp_src}" 2>/dev/null; then
-                # 优先 etc/signing-key.pub(legacy,单 key)
-                if [ -s "${tmp_src}/etc/signing-key.pub" ]; then
-                  sudo cp "${tmp_src}/etc/signing-key.pub" /etc/guix/signing-key.pub
-                  signing_key_imported=1
-                  echo "    ✔ signing-key.pub from ${git_url}"
-                # 现代 Guix 拆成 etc/substitutes/*.pub,cat 拼起来
-                elif [ -n "$(ls "${tmp_src}/etc/substitutes/"*.pub 2>/dev/null)" ]; then
-                  sudo cat "${tmp_src}/etc/substitutes/"*.pub \
-                    | sudo tee /etc/guix/signing-key.pub >/dev/null
-                  signing_key_imported=1
-                  echo "    ✔ substitute keys (concatenated) from ${git_url}"
-                fi
-                sudo rm -rf "${tmp_src}"
-                if [ "${signing_key_imported}" -eq 1 ]; then
-                  break
-                fi
+          # tarball 内的 guix 包 share/guix 目录(guix package 解压后是
+          # /var/guix/profiles/per-user/root/current-guix 的内容)
+          # 用绝对路径调 guix:sudo 会重置 PATH,不能依赖 source 后的 PATH
+          guix_bin="${GUIX_PROFILE}/bin/guix"
+          guix_pub_dir="${GUIX_PROFILE}/share/guix"
+          if [ -x "${guix_bin}" ] && [ -d "${guix_pub_dir}" ]; then
+            for key_pub in "${guix_pub_dir}"/*.pub; do
+              [ -f "${key_pub}" ] || continue
+              echo "    authorizing $(basename "${key_pub}")"
+              if sudo "${guix_bin}" archive --authorize < "${key_pub}" 2>&1; then
+                echo "    ✔ $(basename "${key_pub}")"
               else
-                sudo rm -rf "${tmp_src}"
+                echo "    ::warning::failed to authorize $(basename "${key_pub}")"
               fi
             done
-          fi
-
-          # 1b) 本地 Guix mirror(channels-lock.scm 在用,可达性最稳)
-          if [ "${signing_key_imported}" -eq 0 ] && command -v git >/dev/null; then
-            echo "    trying git archive from local Guix mirror"
-            if git archive --remote=https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git \
-                 HEAD etc/signing-key.pub 2>/dev/null \
-                 | sudo tee /etc/guix/signing-key.pub.tmp >/dev/null \
-                 && [ -s /etc/guix/signing-key.pub.tmp ]; then
-              sudo mv /etc/guix/signing-key.pub.tmp /etc/guix/signing-key.pub
-              signing_key_imported=1
-              echo "    ✔ signing-key.pub from local mirror"
-            else
-              sudo rm -f /etc/guix/signing-key.pub.tmp
-            fi
-          fi
-
-          # 2) 外部 wget 兜底(savannah / cgit plain)
-          if [ "${signing_key_imported}" -eq 0 ]; then
-            for key_url in \
-              https://git.savannah.gnu.org/cgit/guix.git/plain/etc/signing-key.pub \
-              https://cgit.guix.gnu.org/guix.git/plain/etc/signing-key.pub \
-            ; do
-              echo "    trying ${key_url}"
-              if sudo wget -q --timeout=60 --tries=2 --waitretry=10 \
-                   -O /etc/guix/signing-key.pub.tmp "${key_url}" \
-                   && [ -s /etc/guix/signing-key.pub.tmp ] \
-                   && head -c 1 /etc/guix/signing-key.pub.tmp | grep -q '('; then
-                sudo mv /etc/guix/signing-key.pub.tmp /etc/guix/signing-key.pub
-                signing_key_imported=1
-                echo "    ✔ signing-key.pub from ${key_url}"
-                break
-              fi
-              sudo rm -f /etc/guix/signing-key.pub.tmp
-            done
-          fi
-
-          if [ "${signing_key_imported}" -eq 0 ]; then
-            echo "::warning::Failed to import substitute signing key from any source; substitutes will be unavailable this run"
           else
-            sudo chmod 0444 /etc/guix/signing-key.pub
-          fi
-          ls -la /etc/guix/
-
-          # 生成 archive import 用的密钥对,公钥放 /etc/guix/acl
-          # 消掉 "ACL for archive imports seems to be uninitialized" warning
-          # --generate-key 默认放 ~/.guix/acl,cp 到 /etc/guix/acl 给 root daemon 用
-          # 同样尽力而为:--generate-key 偶尔会因为 entropy / pinentry 失败
-          if guix archive --generate-key 2>/dev/null && [ -s ~/.guix/acl ]; then
-            sudo cp ~/.guix/acl /etc/guix/acl
-            sudo chmod 0644 /etc/guix/acl
-          else
-            echo "::warning::Failed to generate archive import ACL; warning is cosmetic only"
+            echo "::warning::${guix_pub_dir} or ${guix_bin} not found; substitute verification disabled"
           fi
           ls -la /etc/guix/
 
