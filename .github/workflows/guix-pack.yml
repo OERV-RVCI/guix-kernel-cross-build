@@ -391,9 +391,10 @@ jobs:
           stage="${{ runner.temp }}/guix-pack-stage"
 
           shopt -s nullglob
-          tars=("${stage}"/*.tar)
+          tars=("${stage}"/*.tar "${stage}"/*.tar.gz "${stage}"/*.tgz)
           if [ "${#tars[@]}" -eq 0 ]; then
-            echo "::error::no .tar artifact found in ${stage}"
+            echo "::error::no .tar/.tar.gz/.tgz artifact found in ${stage}"
+            ls -lh "${stage}"
             exit 1
           fi
 
