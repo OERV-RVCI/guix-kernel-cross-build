@@ -407,19 +407,26 @@ jobs:
           docker image ls --format '  {{.Repository}}:{{.Tag}}' \
             | grep -E "^${PACK_TAG}:" || true
 
-          for tag in ${{ steps.meta.outputs.tags }}; do
+          # ${{ steps.meta.outputs.tags }} 是多行字符串,直接展开会换行导致
+          # for 循环解析错(把第二行当新命令)。用 mapfile 先读成数组。
+          mapfile -t final_tags < <(printf '%s\n' "${{ steps.meta.outputs.tags }}")
+          for tag in "${final_tags[@]}"; do
+            [ -n "${tag}" ] || continue
             docker tag "${PACK_TAG}:latest" "${tag}"
           done
 
           echo "==> Final tags to push:"
-          for tag in ${{ steps.meta.outputs.tags }}; do
+          for tag in "${final_tags[@]}"; do
+            [ -n "${tag}" ] || continue
             echo "  ${tag}"
           done
 
       - name: Push image(s)
         run: |
           set -euo pipefail
-          for tag in ${{ steps.meta.outputs.tags }}; do
+          mapfile -t final_tags < <(printf '%s\n' "${{ steps.meta.outputs.tags }}")
+          for tag in "${final_tags[@]}"; do
+            [ -n "${tag}" ] || continue
             echo "==> Pushing ${tag}"
             docker push "${tag}"
           done
