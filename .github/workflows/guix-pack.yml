@@ -138,33 +138,37 @@ jobs:
             echo "    ✔ signing-key.pub already present (from tarball)"
           fi
 
-          # 1) 公开 Guix 仓库 git sparse clone,只取 etc/signing-key.pub
-          #    codeberg / savannah 都禁了 git archive --remote,但 sparse clone
-          #    走普通 git 智能 HTTP,只下元数据 + 单文件 blob,很轻
-          #    signing-key.pub 是 S-expression 格式,daemon 直接吃
+          # 1) 完整 git clone Guix 源码,直接 cat etc/signing-key.pub
+          #    或 etc/substitutes/*.pub 拼成 daemon 期望的多公钥 S-expression 文件
+          #    codeberg/savannah 禁 git archive --remote 但不禁 clone
+          #    完整 clone 200MB+,在流水线里 30s 内完成
           if [ "${signing_key_imported}" -eq 0 ] && command -v git >/dev/null; then
             for git_url in \
               https://codeberg.org/guix/guix.git \
               https://git.savannah.gnu.org/guix.git \
             ; do
-              echo "    trying git sparse clone ${git_url}"
+              echo "    trying git clone --depth=1 ${git_url}"
               tmp_src=$(mktemp -d)
-              if (cd "${tmp_src}" && \
-                  git init -q . && \
-                  git remote add origin "${git_url}" && \
-                  git config --local protocol.version 2 && \
-                  git fetch --depth=1 --filter=blob:none origin master 2>/dev/null && \
-                  git checkout origin/master -- etc/signing-key.pub 2>/dev/null) \
-                 && [ -s "${tmp_src}/etc/signing-key.pub" ]; then
-                sudo cp "${tmp_src}/etc/signing-key.pub" /etc/guix/signing-key.pub
-                sudo rm -rf "${tmp_src}"
-                if [ -s /etc/guix/signing-key.pub ]; then
+              if git clone --depth=1 --quiet "${git_url}" "${tmp_src}" 2>/dev/null; then
+                # 优先 etc/signing-key.pub(legacy,单 key)
+                if [ -s "${tmp_src}/etc/signing-key.pub" ]; then
+                  sudo cp "${tmp_src}/etc/signing-key.pub" /etc/guix/signing-key.pub
                   signing_key_imported=1
                   echo "    ✔ signing-key.pub from ${git_url}"
+                # 现代 Guix 拆成 etc/substitutes/*.pub,cat 拼起来
+                elif [ -n "$(ls "${tmp_src}/etc/substitutes/"*.pub 2>/dev/null)" ]; then
+                  sudo cat "${tmp_src}/etc/substitutes/"*.pub \
+                    | sudo tee /etc/guix/signing-key.pub >/dev/null
+                  signing_key_imported=1
+                  echo "    ✔ substitute keys (concatenated) from ${git_url}"
+                fi
+                sudo rm -rf "${tmp_src}"
+                if [ "${signing_key_imported}" -eq 1 ]; then
                   break
                 fi
+              else
+                sudo rm -rf "${tmp_src}"
               fi
-              sudo rm -rf "${tmp_src}"
             done
           fi
 
@@ -183,10 +187,7 @@ jobs:
             fi
           fi
 
-          # 2) 外部 wget 兜底(savannah / cgit / GPG keyserver)
-          #    注意:GPG keyserver 返回 ASCII-armored 格式,daemon 不认,
-          #    只会让 ensure-acl 报 "Invalid length specifier in S-expression"
-          #    所以这条主要指望 savannah / cgit 的 plain 路径
+          # 2) 外部 wget 兜底(savannah / cgit plain)
           if [ "${signing_key_imported}" -eq 0 ]; then
             for key_url in \
               https://git.savannah.gnu.org/cgit/guix.git/plain/etc/signing-key.pub \
@@ -195,17 +196,12 @@ jobs:
               echo "    trying ${key_url}"
               if sudo wget -q --timeout=60 --tries=2 --waitretry=10 \
                    -O /etc/guix/signing-key.pub.tmp "${key_url}" \
-                   && [ -s /etc/guix/signing-key.pub.tmp ]; then
-                # 简单验证是不是 S-expression 格式(以 ( 开头)
-                if head -c 1 /etc/guix/signing-key.pub.tmp | grep -q '('; then
-                  sudo mv /etc/guix/signing-key.pub.tmp /etc/guix/signing-key.pub
-                  signing_key_imported=1
-                  echo "    ✔ signing-key.pub from ${key_url}"
-                  break
-                else
-                  echo "    ✘ not S-expression format, skipping"
-                  sudo rm -f /etc/guix/signing-key.pub.tmp
-                fi
+                   && [ -s /etc/guix/signing-key.pub.tmp ] \
+                   && head -c 1 /etc/guix/signing-key.pub.tmp | grep -q '('; then
+                sudo mv /etc/guix/signing-key.pub.tmp /etc/guix/signing-key.pub
+                signing_key_imported=1
+                echo "    ✔ signing-key.pub from ${key_url}"
+                break
               fi
               sudo rm -f /etc/guix/signing-key.pub.tmp
             done
