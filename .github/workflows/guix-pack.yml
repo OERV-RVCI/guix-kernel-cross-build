@@ -128,17 +128,38 @@ jobs:
           # /signing-key.pub 下(那是要被验签的公钥,得外部可信源)
           # bordeaux.guix.gnu.org / bordeaux-singapore-mirror.cbaines.net
           # 都用同一把官方密钥,导入一次覆盖所有
-          sudo wget -q --timeout=60 --tries=3 -O /etc/guix/signing-key.pub \
-            https://git.savannah.gnu.org/cgit/guix.git/plain/etc/signing-key.pub
-          sudo chmod 0444 /etc/guix/signing-key.pub
+          # 尽力而为:多源回退,失败只 warning 不中断流水线
+          signing_key_imported=0
+          for key_url in \
+            https://git.savannah.gnu.org/cgit/guix.git/plain/etc/signing-key.pub \
+            https://cgit.guix.gnu.org/guix.git/plain/etc/signing-key.pub \
+          ; do
+            echo "    trying ${key_url}"
+            if sudo wget -q --timeout=60 --tries=2 --waitretry=10 \
+                 -O /etc/guix/signing-key.pub "${key_url}" \
+                 && [ -s /etc/guix/signing-key.pub ]; then
+              signing_key_imported=1
+              echo "    ✔ signing-key.pub from ${key_url}"
+              break
+            fi
+            sudo rm -f /etc/guix/signing-key.pub
+          done
+          if [ "${signing_key_imported}" -eq 0 ]; then
+            echo "::warning::Failed to import substitute signing key from any source; substitutes will be unavailable this run"
+          fi
+          sudo chmod 0444 /etc/guix/signing-key.pub 2>/dev/null || true
           ls -la /etc/guix/
 
           # 生成 archive import 用的密钥对,公钥放 /etc/guix/acl
           # 消掉 "ACL for archive imports seems to be uninitialized" warning
           # --generate-key 默认放 ~/.guix/acl,cp 到 /etc/guix/acl 给 root daemon 用
-          guix archive --generate-key
-          sudo cp ~/.guix/acl /etc/guix/acl
-          sudo chmod 0644 /etc/guix/acl
+          # 同样尽力而为:--generate-key 偶尔会因为 entropy / pinentry 失败
+          if guix archive --generate-key 2>/dev/null && [ -s ~/.guix/acl ]; then
+            sudo cp ~/.guix/acl /etc/guix/acl
+            sudo chmod 0644 /etc/guix/acl
+          else
+            echo "::warning::Failed to generate archive import ACL; warning is cosmetic only"
+          fi
           ls -la /etc/guix/
 
           # 装完探测实际版本(替代硬编码 GUIX_VERSION)
