@@ -277,7 +277,7 @@ jobs:
           set -euo pipefail
           pack_dir="${RUNNER_TEMP}/guix-pack-out"
 
-          mapfile -t docker_tars < <(find "${pack_dir}" -maxdepth 2 -type f -name '*.tar' | sort)
+          mapfile -t docker_tars < <(find "${pack_dir}" -maxdepth 2 -type f \( -name '*.tar' -o -name '*.tar.gz' -o -name '*.tgz' \) | sort)
           mapfile -t provenance  < <(find "${pack_dir}" -maxdepth 2 -type f -name '*.json' | sort)
 
           if [ "${#docker_tars[@]}" -eq 0 ]; then
