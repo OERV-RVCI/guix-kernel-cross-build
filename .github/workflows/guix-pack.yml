@@ -123,6 +123,24 @@ jobs:
           EOF
           cat /etc/guix/guix-daemon.conf
 
+          # 导入 substitute 签名公钥(daemon 启动前必须)
+          # 必须从 savannah.gnu.org 下,不能从 ci.guix/bordeaux 自己的
+          # /signing-key.pub 下(那是要被验签的公钥,得外部可信源)
+          # bordeaux.guix.gnu.org / bordeaux-singapore-mirror.cbaines.net
+          # 都用同一把官方密钥,导入一次覆盖所有
+          sudo wget -q --timeout=60 --tries=3 -O /etc/guix/signing-key.pub \
+            https://git.savannah.gnu.org/cgit/guix.git/plain/etc/signing-key.pub
+          sudo chmod 0444 /etc/guix/signing-key.pub
+          ls -la /etc/guix/
+
+          # 生成 archive import 用的密钥对,公钥放 /etc/guix/acl
+          # 消掉 "ACL for archive imports seems to be uninitialized" warning
+          # --generate-key 默认放 ~/.guix/acl,cp 到 /etc/guix/acl 给 root daemon 用
+          guix archive --generate-key
+          sudo cp ~/.guix/acl /etc/guix/acl
+          sudo chmod 0644 /etc/guix/acl
+          ls -la /etc/guix/
+
           # 装完探测实际版本(替代硬编码 GUIX_VERSION)
           guix --version
 
