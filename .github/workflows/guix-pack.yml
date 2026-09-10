@@ -129,25 +129,47 @@ jobs:
           # bordeaux.guix.gnu.org / bordeaux-singapore-mirror.cbaines.net
           # 都用同一把官方密钥,导入一次覆盖所有
           # 尽力而为:多源回退,失败只 warning 不中断流水线
+          # 安全下载模板:写 .tmp,只 mv 成功的,避免 wget 失败时把已有文件破坏成空文件
           signing_key_imported=0
-          for key_url in \
-            https://git.savannah.gnu.org/cgit/guix.git/plain/etc/signing-key.pub \
-            https://cgit.guix.gnu.org/guix.git/plain/etc/signing-key.pub \
-          ; do
-            echo "    trying ${key_url}"
-            if sudo wget -q --timeout=60 --tries=2 --waitretry=10 \
-                 -O /etc/guix/signing-key.pub "${key_url}" \
+
+          # 1) 本地 Guix mirror(channels-lock.scm 在用,可达性最稳)
+          if command -v git >/dev/null; then
+            echo "    trying git archive from local Guix mirror"
+            if git archive --remote=https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git \
+                 HEAD etc/signing-key.pub 2>/dev/null \
+                 | sudo tee /etc/guix/signing-key.pub >/dev/null \
                  && [ -s /etc/guix/signing-key.pub ]; then
               signing_key_imported=1
-              echo "    ✔ signing-key.pub from ${key_url}"
-              break
+              echo "    ✔ signing-key.pub from local mirror"
+            else
+              sudo rm -f /etc/guix/signing-key.pub
             fi
-            sudo rm -f /etc/guix/signing-key.pub
-          done
+          fi
+
+          # 2) 外部 savannah / cgit 兜底(任一成功即停)
+          if [ "${signing_key_imported}" -eq 0 ]; then
+            for key_url in \
+              https://git.savannah.gnu.org/cgit/guix.git/plain/etc/signing-key.pub \
+              https://cgit.guix.gnu.org/guix.git/plain/etc/signing-key.pub \
+            ; do
+              echo "    trying ${key_url}"
+              if sudo wget -q --timeout=60 --tries=2 --waitretry=10 \
+                   -O /etc/guix/signing-key.pub.tmp "${key_url}" \
+                   && [ -s /etc/guix/signing-key.pub.tmp ]; then
+                sudo mv /etc/guix/signing-key.pub.tmp /etc/guix/signing-key.pub
+                signing_key_imported=1
+                echo "    ✔ signing-key.pub from ${key_url}"
+                break
+              fi
+              sudo rm -f /etc/guix/signing-key.pub.tmp
+            done
+          fi
+
           if [ "${signing_key_imported}" -eq 0 ]; then
             echo "::warning::Failed to import substitute signing key from any source; substitutes will be unavailable this run"
+          else
+            sudo chmod 0444 /etc/guix/signing-key.pub
           fi
-          sudo chmod 0444 /etc/guix/signing-key.pub 2>/dev/null || true
           ls -la /etc/guix/
 
           # 生成 archive import 用的密钥对,公钥放 /etc/guix/acl
