@@ -6,7 +6,8 @@
  (gnu packages version-control)
  (gnu packages rsync)
  (gnu packages curl)
- (gnu packages nss))
+ (gnu packages nss)
+ (gnu packages cpio))
 
 (concatenate-manifests
  (list (package->development-manifest
@@ -20,4 +21,5 @@
               rsync
               curl
               nss-certs
-              kmod))))
+              kmod
+              cpio))))
