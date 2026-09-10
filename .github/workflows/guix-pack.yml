@@ -407,8 +407,9 @@ jobs:
           docker image ls --format '  {{.Repository}}:{{.Tag}}' \
             | grep -E "^${PACK_TAG}:" || true
 
-          # ${{ steps.meta.outputs.tags }} 是多行字符串,直接展开会换行导致
-          # for 循环解析错(把第二行当新命令)。用 mapfile 先读成数组。
+          # steps.meta.outputs.tags 是多行 newline-separated 字符串,
+          # 直接展开到 for 循环会换行错位。用 mapfile 先读成数组再迭代。
+          # (注释里不要写表达式插值,GH Actions 会替换 ${{ ... }} 把注释也拆行)
           mapfile -t final_tags < <(printf '%s\n' "${{ steps.meta.outputs.tags }}")
           for tag in "${final_tags[@]}"; do
             [ -n "${tag}" ] || continue
