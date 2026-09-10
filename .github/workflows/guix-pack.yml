@@ -129,20 +129,27 @@ jobs:
           # bordeaux.guix.gnu.org / bordeaux-singapore-mirror.cbaines.net
           # 都用同一把官方密钥,导入一次覆盖所有
           # 尽力而为:多源回退,失败只 warning 不中断流水线
-          # 安全下载模板:写 .tmp,只 mv 成功的,避免 wget 失败时把已有文件破坏成空文件
+          # 安全下载模板:写 .tmp,只 mv 成功的,避免 wget/git 失败时把已有文件破坏成空文件
           signing_key_imported=0
 
+          # 0) tarball 自带的(可能存在);非空就视为已导入
+          if [ -s /etc/guix/signing-key.pub ]; then
+            signing_key_imported=1
+            echo "    ✔ signing-key.pub already present (from tarball)"
+          fi
+
           # 1) 本地 Guix mirror(channels-lock.scm 在用,可达性最稳)
-          if command -v git >/dev/null; then
+          if [ "${signing_key_imported}" -eq 0 ] && command -v git >/dev/null; then
             echo "    trying git archive from local Guix mirror"
             if git archive --remote=https://git.oerv.ac.cn/wangliu-iscas/guix-mirror.git \
                  HEAD etc/signing-key.pub 2>/dev/null \
-                 | sudo tee /etc/guix/signing-key.pub >/dev/null \
-                 && [ -s /etc/guix/signing-key.pub ]; then
+                 | sudo tee /etc/guix/signing-key.pub.tmp >/dev/null \
+                 && [ -s /etc/guix/signing-key.pub.tmp ]; then
+              sudo mv /etc/guix/signing-key.pub.tmp /etc/guix/signing-key.pub
               signing_key_imported=1
               echo "    ✔ signing-key.pub from local mirror"
             else
-              sudo rm -f /etc/guix/signing-key.pub
+              sudo rm -f /etc/guix/signing-key.pub.tmp
             fi
           fi
 
