@@ -10,23 +10,16 @@ name: Guix Pack Linux Build
 #   触发            推送到 registry 的 tag
 #   v*        →     <tag>            + release
 #   dev-v*    →     <tag>            + dev
-#   dispatch  →     <tag_name>       (留空 → latest)
 #
 # PACK_TAG 是 guix pack 内部镜像 tag,仅供 docker load 后 retag 使用,
-# 不会出现在最终推送列表里。本流水线不依赖任何 base image,在 dev / main
-# 分支均可直接使用,触发条件为纯 tag / 手动 dispatch。
+# 不会出现在最终推送列表里。本流水线不依赖任何 base image,触发条件为
+# 纯 git tag push(无手动 dispatch)。
 
 on:
   push:
     tags:
       - "v*"
       - "dev-v*"
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: '要推送到 registry 的 tag 名称(留空推 latest,等价于 git push 一个 tag)'
-        required: false
-        type: string
 
 # 同一 tag 多次 push 取消旧 run,避免 GH 端 webhook 漏触发的旧 run 跟新 run 抢资源
 concurrency:
@@ -197,20 +190,15 @@ jobs:
 
       - name: Resolve parameters
         id: params
-        env:
-          INPUT_TAG_NAME: ${{ github.event.inputs.tag_name }}
         run: |
           guix_commit="${DEFAULT_GUIX_COMMIT}"
-          tag_name="${INPUT_TAG_NAME:-}"
 
           {
             echo "guix_commit=${guix_commit}"
-            echo "tag_name=${tag_name}"
           } >> "$GITHUB_OUTPUT"
 
           echo "Resolved parameters:"
           echo "  guix_commit = ${guix_commit}"
-          echo "  tag_name    = ${tag_name:-<from git ref>}"
 
       - name: Run guix time-machine pack
         env:
@@ -349,8 +337,6 @@ jobs:
     needs: pack
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env:
-      TAG_NAME_INPUT: ${{ github.event.inputs.tag_name }}
 
     steps:
       - name: Download docker tarball(s)
@@ -365,13 +351,11 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # 命名规则参见文件顶部;此处仅用 enable 区分 v*/dev-v*
+          # 命名规则参见文件顶部;v* → release,dev-v* → dev
           tags: |
             type=raw,value={{tag}}
             type=raw,value=release,enable=${{ !startsWith(github.ref, 'refs/tags/dev-v') }}
             type=raw,value=dev,enable=${{ startsWith(github.ref, 'refs/tags/dev-v') }}
-            type=raw,value=${{ env.TAG_NAME_INPUT }},enable=${{ github.event_name == 'workflow_dispatch' && env.TAG_NAME_INPUT != '' }}
-            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' && env.TAG_NAME_INPUT == '' }}
 
       - name: Resolve final tags
         id: tags
