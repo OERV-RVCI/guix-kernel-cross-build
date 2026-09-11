@@ -23,11 +23,6 @@ on:
       - "dev-v*"
   workflow_dispatch:
     inputs:
-      guix_commit:
-        description: 'guix time-machine commit(留空走 default)'
-        required: false
-        default: '380e3fa8005d2dd393143a208631cf672b8e838a'
-        type: string
       tag_name:
         description: '要推送到 registry 的 tag 名称(留空推 latest,等价于 git push 一个 tag)'
         required: false
@@ -203,10 +198,9 @@ jobs:
       - name: Resolve parameters
         id: params
         env:
-          INPUT_GUIX_COMMIT: ${{ github.event.inputs.guix_commit }}
-          INPUT_TAG_NAME:    ${{ github.event.inputs.tag_name }}
+          INPUT_TAG_NAME: ${{ github.event.inputs.tag_name }}
         run: |
-          guix_commit="${INPUT_GUIX_COMMIT:-${DEFAULT_GUIX_COMMIT}}"
+          guix_commit="${DEFAULT_GUIX_COMMIT}"
           tag_name="${INPUT_TAG_NAME:-}"
 
           {
