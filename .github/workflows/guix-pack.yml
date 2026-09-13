@@ -231,7 +231,9 @@ jobs:
                     --save-provenance \
                     --entry-point=bin/bash \
                     -S /bin/sh=bin/sh \
-                    -S /usr/bin/env=bin/env 2>&1 | tee /tmp/guix-pack.log
+                    -S /usr/bin/env=bin/env \
+                    -S /usr/bin/guix-cross-build=guix-cross-build/bin/guix-cross-build \
+                    2>&1 | tee /tmp/guix-pack.log
           pack_rc=${PIPESTATUS[0]}
           if [ "${pack_rc}" -ne 0 ]; then
             echo "::error::guix time-machine pack failed with exit code ${pack_rc}"
