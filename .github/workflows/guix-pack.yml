@@ -232,13 +232,24 @@ jobs:
                     --entry-point=bin/bash \
                     -S /bin/sh=bin/sh \
                     -S /usr/bin/env=bin/env \
-                    -S /usr/bin/guix-cross-build=guix-cross-build/bin/guix-cross-build \
+                    # -S 目标是 profile 根相对路径:computed-file 的 bin/ 直接
+                    # 并进 profile 根(不是 guix-cross-build/ 子目录),所以写 bin/...
+                    -S /usr/bin/guix-cross-build=bin/guix-cross-build \
                     2>&1 | tee /tmp/guix-pack.log
           pack_rc=${PIPESTATUS[0]}
           if [ "${pack_rc}" -ne 0 ]; then
             echo "::error::guix time-machine pack failed with exit code ${pack_rc}"
             echo "::error::last 80 lines of /tmp/guix-pack.log:"
             tail -n 80 /tmp/guix-pack.log
+            # guix 只提示 "View build log at /var/log/guix/drvs/...",真正的
+            # builder 报错在那些 .drv.gz 里;runner 是一次性的,失败时必须
+            # 当场解压 dump 出来,否则只有 "exit code 1" 没有原因
+            echo "==> dumping recent drv build logs from /var/log/guix/drvs/"
+            sudo sh -c 'ls -t /var/log/guix/drvs/*/*/*.drv.gz 2>/dev/null | head -5' \
+              | while read -r drvlog; do
+                  echo "=== ${drvlog} ==="
+                  sudo zcat "${drvlog}" | tail -n 60 || true
+                done
             exit "${pack_rc}"
           fi
 
