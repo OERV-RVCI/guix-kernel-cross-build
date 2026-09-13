@@ -218,6 +218,11 @@ jobs:
           echo "==> image-tag=${PACK_TAG} (内部)"
           # --fallback   : substitute hash 失配时回退本地构建
           # --no-grafts  : 禁用 graft 更新,避免额外的 source 拉取
+          # -S 的目标写 profile 根相对路径:computed-file 的 bin/ 直接并进
+          # profile 根(不是 guix-cross-build/ 子目录)。
+          # !!注释绝不能插在续行符 \ 的中间:行尾 \ 会把注释行拼进命令,
+          # # 后的内容连同后续 -S 一起被吞,-S 会变成独立命令执行
+          # (dev-v70 踩过:guix pack 成功但脚本 "line 31: -S: command not found")
           # 故意不带 -q: 之前的 dev-v51 失败时 -q 吞掉了 guix 的真实错误,
           # 只能从下游 "no .tar file" 推断。加 2>&1 把 stderr 也重定向到日志
           guix time-machine --commit="${GUIX_COMMIT}" -- \
@@ -232,8 +237,6 @@ jobs:
                     --entry-point=bin/bash \
                     -S /bin/sh=bin/sh \
                     -S /usr/bin/env=bin/env \
-                    # -S 目标是 profile 根相对路径:computed-file 的 bin/ 直接
-                    # 并进 profile 根(不是 guix-cross-build/ 子目录),所以写 bin/...
                     -S /usr/bin/guix-cross-build=bin/guix-cross-build \
                     2>&1 | tee /tmp/guix-pack.log
           pack_rc=${PIPESTATUS[0]}
