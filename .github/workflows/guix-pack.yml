@@ -220,6 +220,9 @@ jobs:
           # --no-grafts  : 禁用 graft 更新,避免额外的 source 拉取
           # -S 的目标写 profile 根相对路径:computed-file 的 bin/ 直接并进
           # profile 根(不是 guix-cross-build/ 子目录)。
+          # -S /bin/bash:guix-cross-build 脚本 shebang 是 #!/bin/bash,
+          # 镜像根没有 /bin/bash,内核会报
+          # "cannot execute: required file not found"
           # !!注释绝不能插在续行符 \ 的中间:行尾 \ 会把注释行拼进命令,
           # # 后的内容连同后续 -S 一起被吞,-S 会变成独立命令执行
           # (dev-v70 踩过:guix pack 成功但脚本 "line 31: -S: command not found")
@@ -236,6 +239,7 @@ jobs:
                     --save-provenance \
                     --entry-point=bin/bash \
                     -S /bin/sh=bin/sh \
+                    -S /bin/bash=bin/bash \
                     -S /usr/bin/env=bin/env \
                     -S /usr/bin/guix-cross-build=bin/guix-cross-build \
                     2>&1 | tee /tmp/guix-pack.log
