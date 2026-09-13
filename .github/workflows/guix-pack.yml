@@ -210,7 +210,9 @@ jobs:
 
           pack_dir="${RUNNER_TEMP}/guix-pack-out"
           rm -rf "${pack_dir}" && mkdir -p "${pack_dir}"
-          cd "${pack_dir}"
+          # 切到 workspace 让 manifest.scm 里的 (local-file "guix-cross-build")
+          # 能解析到仓库根的脚本
+          cd "${{ github.workspace }}"
 
           echo "==> guix time-machine ${GUIX_COMMIT}"
           echo "==> image-tag=${PACK_TAG} (内部)"
@@ -219,7 +221,7 @@ jobs:
           # 故意不带 -q: 之前的 dev-v51 失败时 -q 吞掉了 guix 的真实错误,
           # 只能从下游 "no .tar file" 推断。加 2>&1 把 stderr 也重定向到日志
           guix time-machine --commit="${GUIX_COMMIT}" -- \
-               pack -m "${{ github.workspace }}/manifest.scm" \
+               pack -m ./manifest.scm \
                     -f docker \
                     --max-layers=50 \
                     --no-offload \
