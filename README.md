@@ -1,53 +1,81 @@
-# guix-cross-build
-guix交叉编译构建内核
-|支持的仓库|仓库地址|
+# guix-kernel-cross-build
+
+用 [Guix](https://guix.gnu.org/) `guix pack` 制作的**内核交叉编译容器**。
+
+本仓库只做一件事:通过 GitHub Actions 流水线(`.github/workflows/guix-pack.yml`)
+在 CI 上用 `guix pack -f docker` 把 `manifest.scm` 描述的 riscv64 交叉工具链
+打包成 Docker 镜像并推送到 registry。**容器内不含 guix-daemon,不能作为通用
+Guix 环境,只能用于内核构建**。
+
+## 镜像内容
+
+| 内容 | 来源 |
 |---|---|
-|rvck|https://github.com/RVCK-Project/rvck|
-|rvck-olk|https://github.com/RVCK-Project/rvck-olk|
+| `riscv64-linux-gnu-` 交叉工具链(gcc、binutils 等) | `linux-libre` 的 development manifest,`#:target "riscv64-linux-gnu"` |
+| `git` / `rsync` / `curl` / `nss-certs` / `kmod` / `cpio` | `manifest.scm` 显式声明 |
+| `/usr/bin/guix-cross-build` | 仓库根的 `guix-cross-build` 脚本,构建时经 `computed-file` 嵌入镜像 |
 
-> 也支持仓库名为 rvck、rvck-olk 的fork仓库： https://github.com/xxx/rvck 、https://github.com/xxx/rvck-olk
+## 镜像构建与发布
+
+流水线由**纯 git tag push** 触发,无手动 dispatch:
+
+| 推送的 tag | 发布到 `hub.oepkgs.net/oerv-ci/guix-kernel-cross-build` 的 tag |
+|---|---|
+| `v*` | `<tag>` + `release` |
+| `dev-v*` | `<tag>` + `dev` |
+
+注意:**流水线不会产出 `latest` tag**,拉取时请使用具体版本 tag 或 `release` / `dev`。
+
+流水线步骤:CI 上从零安装 Guix → `guix time-machine --commit=<DEFAULT_GUIX_COMMIT>`
+拉取固定版本的 Guix → `guix pack -f docker` 打包 manifest → `docker load` +
+retag → 推送 registry。构建完全靠官方 substitute,不依赖任何 base image。
+
 ## 使用
-因为会生成initramfs，所以需要准备qemu-user环境   
-oe x86环境下需要访问目录触发挂载
-```
-# ls -alh /proc/sys/fs/binfmt_misc
-```
-在x86环境下qemu-user安装
-```
-# docker run --privileged --rm tonistiigi/binfmt --install all
-```
-测试qemu-user环境
-```
-#  docker run --rm --platform linux/riscv64 alpine uname -a
-Linux 49d78a4ac4f1 6.6.0-78.0.0.83.oe2403sp1.x86_64 #1 SMP Wed Feb 19 18:06:41 CST 2025 riscv64 Linux
-```
-运行构建容器，需要挂载本地目录进容器
-```
-# docker run -ti --privileged -v /your/data/path:/srv/guix_result hub.oepkgs.net/oerv-ci/guix-kernel-cross-build:latest  bash
+
+容器是 x86_64 的,内核为纯交叉编译(宿主机架构无关,无需 qemu-user):
+
+```bash
+docker run -ti -v /your/data/path:/srv/guix_result \
+    hub.oepkgs.net/oerv-ci/guix-kernel-cross-build:release bash
 ```
 
-进入容器后，查看guix进程
-```
-# ps
-    PID TTY          TIME CMD
-      1 pts/0    00:00:00 bash
-      8 pts/0    00:00:00 guix-start.sh
-     76 pts/0    00:00:00 guix-daemon
-     79 pts/0    00:00:00 ps
+进入容器后,传入 commit 或 PR 的 URL 运行构建:
+
+```bash
+# 指定已合并的 commit
+guix-cross-build https://github.com/RVCK-Project/rvck/commit/32c7ba2136024ee1563416607e3265ccbee6a55e > test.log 2>&1
+
+# 指定未合并的 PR
+guix-cross-build https://github.com/RVCK-Project/rvck-olk/pull/103 > test.log 2>&1
 ```
 
-指定已合并的commit,运行guix构建
+### 支持的仓库
+
+| 仓库 | defconfig |
+|---|---|
+| https://github.com/RVCK-Project/rvck 及其同名 fork(`xxx/rvck`) | `rvck_defconfig` |
+| https://github.com/RVCK-Project/rvck-olk 及其同名 fork(`xxx/rvck-olk`) | `openeuler_defconfig` |
+| https://github.com/openRuyi-Project/linux 及其同名 fork(`xxx/linux`) | `defconfig` |
+
+仓库名取 URL 路径的第二段,由它决定使用的 defconfig;除上述外仓库名为
+`openruyi-linux` 的仓库也可用(`defconfig`)。
+
+## 构建产物
+
+构建完毕后产物存放在 `/srv/guix_result/<commit>/` 下:
+
 ```
-# guix-cross-build https://github.com/RVCK-Project/rvck/commit/32c7ba2136024ee1563416607e3265ccbee6a55e > test.log 2>&1
+Image           # riscv64 内核镜像
+vmlinux         # 带 debug 信息的 ELF
+lib/modules/    # 安装后的内核模块
+lib/dtb/        # 设备树(保留 vendor 子目录)
+<kver>.tgz      # 模块压缩包,目标机 `tar -xzf <kver>.tgz -C /` 直接落到标准路径
 ```
-指定为合并的PR,运行guix构建
+
+## 仓库结构
+
 ```
-# guix-cross-build https://github.com/RVCK-Project/rvck-olk/pull/103  > test.log 2>&1
-```
-构建完毕后，*/srv/guix_result/*目录下会存放着这次构建的产物
-```
-# ls /srv/guix_result/
-32c7ba2136024ee1563416607e3265ccbee6a55e
-# ls /srv/guix_result/32c7ba2136024ee1563416607e3265ccbee6a55e/
-6.6.101.tgz  Image  Image.md5sum  Module.symvers  System.map  initramfs.img  initramfs.img.md5sum  lib  share
+manifest.scm                    # guix pack 的 manifest:交叉工具链 + 构建依赖 + 嵌入脚本
+guix-cross-build                # 构建入口脚本:clone → defconfig → make → 收集产物
+.github/workflows/guix-pack.yml # CI 流水线:guix pack → docker load → push registry
 ```
