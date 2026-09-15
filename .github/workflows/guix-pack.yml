@@ -5,7 +5,7 @@ name: Guix Pack Linux Build
 # manifest.scm 描述的 riscv64-linux-gnu 交叉工具链打包为 Docker 镜像。
 #
 # 沿用旧 docker-image.yml(已重命名为 .disabled)的标签/命名约定:
-#   REGISTRY/IMAGE_NAME = hub.oepkgs.net/oerv-ci/guix-kernel-cross-build
+#   REGISTRY/IMAGE_NAME = hub.oepkgs.net/rvci/guix-kernel-cross-build
 #
 #   触发            推送到 registry 的 tag
 #   v*        →     <tag>            + release
@@ -29,7 +29,7 @@ concurrency:
 env:
   DEFAULT_GUIX_COMMIT: '380e3fa8005d2dd393143a208631cf672b8e838a'
   REGISTRY: hub.oepkgs.net
-  IMAGE_NAME: oerv-ci/guix-kernel-cross-build
+  IMAGE_NAME: rvci/guix-kernel-cross-build
   PACK_TAG: guix-pack
   SUBSTITUTE_URLS: 'https://ci.guix.gnu.org https://bordeaux.guix.gnu.org https://bordeaux-singapore-mirror.cbaines.net'
 

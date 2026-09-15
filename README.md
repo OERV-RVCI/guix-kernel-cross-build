@@ -19,7 +19,7 @@ Guix 环境,只能用于内核构建**。
 
 流水线由**纯 git tag push** 触发,无手动 dispatch:
 
-| 推送的 tag | 发布到 `hub.oepkgs.net/oerv-ci/guix-kernel-cross-build` 的 tag |
+| 推送的 tag | 发布到 `hub.oepkgs.net/rvci/guix-kernel-cross-build` 的 tag |
 |---|---|
 | `v*` | `<tag>` + `release` |
 | `dev-v*` | `<tag>` + `dev` |
@@ -36,7 +36,7 @@ retag → 推送 registry。构建完全靠官方 substitute,不依赖任何 bas
 
 ```bash
 docker run -ti -v /your/data/path:/srv/guix_result \
-    hub.oepkgs.net/oerv-ci/guix-kernel-cross-build:release bash
+    hub.oepkgs.net/rvci/guix-kernel-cross-build:release bash
 ```
 
 进入容器后,传入 commit 或 PR 的 URL 运行构建:
