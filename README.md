@@ -42,10 +42,14 @@ docker run -ti -v /your/data/path:/srv/guix_result \
 进入容器后,传入 commit 或 PR 的 URL 运行构建:
 
 ```bash
-# 指定已合并的 commit
-guix-cross-build https://github.com/RVCK-Project/rvck/commit/32c7ba2136024ee1563416607e3265ccbee6a55e > test.log 2>&1
+# openruyi 内核,指定已合并的 commit
+guix-cross-build https://github.com/openRuyi-Project/linux/commit/<commit-id> > test.log 2>&1
 
-# 指定未合并的 PR
+# openruyi 内核,指定未合并的 PR
+guix-cross-build https://github.com/openRuyi-Project/linux/pull/<PR编号> > test.log 2>&1
+
+# rvck / rvck-olk 同理
+guix-cross-build https://github.com/RVCK-Project/rvck/commit/32c7ba2136024ee1563416607e3265ccbee6a55e > test.log 2>&1
 guix-cross-build https://github.com/RVCK-Project/rvck-olk/pull/103 > test.log 2>&1
 ```
 
@@ -53,12 +57,13 @@ guix-cross-build https://github.com/RVCK-Project/rvck-olk/pull/103 > test.log 2>
 
 | 仓库 | defconfig |
 |---|---|
+| https://github.com/openRuyi-Project/linux 及其同名 fork(`xxx/linux`) | `defconfig` |
+| 仓库名为 `openruyi-linux` 的仓库及其 fork(`xxx/openruyi-linux`) | `defconfig` |
 | https://github.com/RVCK-Project/rvck 及其同名 fork(`xxx/rvck`) | `rvck_defconfig` |
 | https://github.com/RVCK-Project/rvck-olk 及其同名 fork(`xxx/rvck-olk`) | `openeuler_defconfig` |
-| https://github.com/openRuyi-Project/linux 及其同名 fork(`xxx/linux`) | `defconfig` |
 
-仓库名取 URL 路径的第二段,由它决定使用的 defconfig;除上述外仓库名为
-`openruyi-linux` 的仓库也可用(`defconfig`)。
+仓库名取 URL 路径的第二段,由它决定使用的 defconfig;不在上表中的仓库名
+会被拒绝。
 
 ## 构建产物
 
