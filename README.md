@@ -71,11 +71,16 @@ guix-cross-build https://github.com/RVCK-Project/rvck-olk/pull/103 > test.log 2>
 
 ```
 Image           # riscv64 内核镜像
+Image.md5sum    # Image 的 md5 校验
 vmlinux         # 带 debug 信息的 ELF
+vmlinux.md5sum  # vmlinux 的 md5 校验
 lib/modules/    # 安装后的内核模块
 lib/dtb/        # 设备树(保留 vendor 子目录)
 <kver>.tgz      # 模块压缩包,目标机 `tar -xzf <kver>.tgz -C /` 直接落到标准路径
+<kver>.tgz.md5sum  # 模块压缩包的 md5 校验
 ```
+
+下载产物后可用 `md5sum -c Image.md5sum` 等方式校验完整性。
 
 ## 仓库结构
 

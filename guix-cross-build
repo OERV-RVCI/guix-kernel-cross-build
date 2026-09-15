@@ -113,6 +113,12 @@ depmod -b ${RESULT_PATH}/${git_commit} "$module_dir_name"
 # `tar -xzf <kver>.tgz -C /` 落到标准内核模块路径
 tar -czf  ${RESULT_PATH}/${git_commit}/"$module_dir_name".tgz -C ${RESULT_PATH}/${git_commit} lib/modules/"$module_dir_name"
 
+# 生成 md5 校验文件,下载/分发后可 `md5sum -c` 校验
+(cd "${RESULT_PATH}/${git_commit}" && \
+    md5sum Image > Image.md5sum && \
+    md5sum vmlinux > vmlinux.md5sum && \
+    md5sum "$module_dir_name".tgz > "$module_dir_name".tgz.md5sum)
+
 echo ""
 echo "=========================================="
 echo "Build artifacts in ${RESULT_PATH}/${git_commit}:"
